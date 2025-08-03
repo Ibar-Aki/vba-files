@@ -1,0 +1,1153 @@
+' ================================================
+' 建設現場向けWBS管理システム
+' Excel VBAマクロ版
+' ================================================
+
+Option Explicit
+
+' ===============================================
+' 定数定義
+' ===============================================
+Const WS_WBS = "WBS管理"
+Const WS_DASHBOARD = "ダッシュボード"
+Const WS_MASTER = "マスタ"
+Const WS_PERSONAL = "個人ビュー"
+Const WS_GANTT = "ガントチャート"
+
+' ===============================================
+' メイン初期化処理
+' ===============================================
+Sub InitializeWBSSystem()
+    Application.ScreenUpdating = False
+    Application.DisplayAlerts = False
+    
+    ' 既存シートを削除（エラー処理付き）
+    Call DeleteSheetIfExists(WS_WBS)
+    Call DeleteSheetIfExists(WS_DASHBOARD)
+    Call DeleteSheetIfExists(WS_MASTER)
+    Call DeleteSheetIfExists(WS_PERSONAL)
+    Call DeleteSheetIfExists(WS_GANTT)
+    
+    ' 各シートを作成
+    Call CreateMasterSheet
+    Call CreateWBSSheet
+    Call CreateDashboardSheet
+    Call CreatePersonalSheet
+    Call CreateGanttSheet
+    
+    ' サンプルデータを挿入
+    Call InsertSampleData
+    
+    ' 各シートを更新
+    Call UpdateDashboard
+    Call UpdatePersonalView
+    Call UpdateGanttChart
+    
+    Application.DisplayAlerts = True
+    Application.ScreenUpdating = True
+    
+    MsgBox "WBS管理システムの初期化が完了しました！", vbInformation
+End Sub
+
+' ===============================================
+' シート削除処理
+' ===============================================
+Sub DeleteSheetIfExists(sheetName As String)
+    Dim ws As Worksheet
+    On Error Resume Next
+    Set ws = Worksheets(sheetName)
+    If Not ws Is Nothing Then
+        ws.Delete
+    End If
+    On Error GoTo 0
+End Sub
+
+' ===============================================
+' マスタシート作成
+' ===============================================
+Sub CreateMasterSheet()
+    Dim ws As Worksheet
+    Set ws = Worksheets.Add
+    ws.Name = WS_MASTER
+    
+    ' ヘッダー設定
+    With ws
+        .Range("A1").Value = "担当者マスタ"
+        .Range("C1").Value = "プロジェクトマスタ"
+        .Range("E1").Value = "優先度マスタ"
+        .Range("G1").Value = "ステータスマスタ"
+        
+        ' 担当者マスタ
+        .Range("A2").Value = "田中太郎"
+        .Range("A3").Value = "佐藤花子"
+        .Range("A4").Value = "山田次郎"
+        .Range("A5").Value = "鈴木一郎"
+        .Range("A6").Value = "高橋美咲"
+        
+        ' プロジェクトマスタ
+        .Range("C2").Value = "建設現場向け作業ナビシステム"
+        .Range("C3").Value = "サブプロジェクト1"
+        .Range("C4").Value = "サブプロジェクト2"
+        
+        ' 優先度マスタ
+        .Range("E2").Value = "高"
+        .Range("E3").Value = "中"
+        .Range("E4").Value = "低"
+        
+        ' ステータスマスタ
+        .Range("G2").Value = "未着手"
+        .Range("G3").Value = "進行中"
+        .Range("G4").Value = "完了"
+        .Range("G5").Value = "保留"
+        .Range("G6").Value = "課題あり"
+        
+        ' ヘッダー書式設定
+        .Range("A1,C1,E1,G1").Font.Bold = True
+        .Range("A1,C1,E1,G1").Interior.Color = RGB(79, 129, 189)
+        .Range("A1,C1,E1,G1").Font.Color = RGB(255, 255, 255)
+        
+        ' 列幅調整
+        .Columns("A:A").ColumnWidth = 15
+        .Columns("C:C").ColumnWidth = 30
+        .Columns("E:E").ColumnWidth = 10
+        .Columns("G:G").ColumnWidth = 12
+    End With
+End Sub
+
+' ===============================================
+' WBSシート作成
+' ===============================================
+Sub CreateWBSSheet()
+    Dim ws As Worksheet
+    Set ws = Worksheets.Add
+    ws.Name = WS_WBS
+    
+    ' ヘッダー作成
+    Dim headers As Variant
+    headers = Array("WBSコード", "タスク名", "プロジェクト", "担当者", "優先度", _
+                   "ステータス", "予定開始日", "予定終了日", "実績開始日", "実績終了日", _
+                   "予定工数", "進捗率", "依存関係", "成果物", "リスク・課題", "備考")
+    
+    Dim i As Integer
+    For i = 0 To UBound(headers)
+        ws.Cells(1, i + 1).Value = headers(i)
+    Next i
+    
+    ' ヘッダー書式設定
+    With ws.Range("A1:P1")
+        .Font.Bold = True
+        .Interior.Color = RGB(79, 129, 189)
+        .Font.Color = RGB(255, 255, 255)
+        .HorizontalAlignment = xlCenter
+    End With
+    
+    ' 列幅設定
+    ws.Columns("A:A").ColumnWidth = 10  ' WBSコード
+    ws.Columns("B:B").ColumnWidth = 25  ' タスク名
+    ws.Columns("C:C").ColumnWidth = 20  ' プロジェクト
+    ws.Columns("D:D").ColumnWidth = 12  ' 担当者
+    ws.Columns("E:E").ColumnWidth = 8   ' 優先度
+    ws.Columns("F:F").ColumnWidth = 10  ' ステータス
+    ws.Columns("G:H").ColumnWidth = 12  ' 予定日
+    ws.Columns("I:J").ColumnWidth = 12  ' 実績日
+    ws.Columns("K:K").ColumnWidth = 10  ' 予定工数
+    ws.Columns("L:L").ColumnWidth = 10  ' 進捗率
+    ws.Columns("M:M").ColumnWidth = 12  ' 依存関係
+    ws.Columns("N:N").ColumnWidth = 15  ' 成果物
+    ws.Columns("O:O").ColumnWidth = 20  ' リスク・課題
+    ws.Columns("P:P").ColumnWidth = 20  ' 備考
+    
+    ' フィルター設定
+    ws.Range("A1:P1").AutoFilter
+    
+    ' ウィンドウ枠の固定
+    ws.Range("A2").Select
+    ActiveWindow.FreezePanes = True
+End Sub
+
+' ===============================================
+' ダッシュボードシート作成
+' ===============================================
+Sub CreateDashboardSheet()
+    Dim ws As Worksheet
+    Set ws = Worksheets.Add
+    ws.Name = WS_DASHBOARD
+    
+    With ws
+        ' タイトル
+        .Range("A1").Value = "WBS管理ダッシュボード"
+        .Range("A1").Font.Size = 16
+        .Range("A1").Font.Bold = True
+        .Range("A1:F1").Merge
+        
+        ' KPI エリア
+        .Range("A3").Value = "■ プロジェクト概要"
+        .Range("A3").Font.Bold = True
+        
+        .Range("A4").Value = "総タスク数："
+        .Range("B4").Name = "TotalTasks"
+        
+        .Range("A5").Value = "完了タスク数："
+        .Range("B5").Name = "CompletedTasks"
+        
+        .Range("A6").Value = "進行中タスク数："
+        .Range("B6").Name = "InProgressTasks"
+        
+        .Range("A7").Value = "遅延タスク数："
+        .Range("B7").Name = "DelayedTasks"
+        
+        .Range("A8").Value = "全体進捗率："
+        .Range("B8").Name = "OverallProgress"
+        
+        ' アラートエリア
+        .Range("A10").Value = "■ 重要なアラート"
+        .Range("A10").Font.Bold = True
+        .Range("A10").Font.Color = RGB(255, 0, 0)
+        
+        .Range("A11:F15").Name = "AlertArea"
+        
+        ' プロジェクト別サマリーエリア
+        .Range("A17").Value = "■ プロジェクト別進捗"
+        .Range("A17").Font.Bold = True
+        
+        .Range("A18").Value = "プロジェクト名"
+        .Range("B18").Value = "総タスク"
+        .Range("C18").Value = "完了"
+        .Range("D18").Value = "進行中"
+        .Range("E18").Value = "遅延"
+        .Range("F18").Value = "完了率"
+        
+        .Range("A18:F18").Font.Bold = True
+        .Range("A18:F18").Interior.Color = RGB(217, 217, 217)
+        
+        .Range("A19:F25").Name = "ProjectSummary"
+        
+        ' 担当者別サマリー
+        .Range("H3").Value = "■ 担当者別進捗"
+        .Range("H3").Font.Bold = True
+        
+        .Range("H4").Value = "担当者名"
+        .Range("I4").Value = "総タスク"
+        .Range("J4").Value = "完了"
+        .Range("K4").Value = "進行中"
+        .Range("L4").Value = "遅延"
+        
+        .Range("H4:L4").Font.Bold = True
+        .Range("H4:L4").Interior.Color = RGB(217, 217, 217)
+        
+        .Range("H5:L15").Name = "UserSummary"
+        
+        ' 更新ボタン
+        .Range("A27").Value = "更新日時："
+        .Range("B27").Name = "LastUpdate"
+        
+        ' 列幅調整
+        .Columns("A:A").ColumnWidth = 20
+        .Columns("B:F").ColumnWidth = 12
+        .Columns("H:L").ColumnWidth = 12
+    End With
+End Sub
+
+' ===============================================
+' 個人ビューシート作成
+' ===============================================
+Sub CreatePersonalSheet()
+    Dim ws As Worksheet
+    Set ws = Worksheets.Add
+    ws.Name = WS_PERSONAL
+    
+    With ws
+        ' タイトル
+        .Range("A1").Value = "個人タスクビュー"
+        .Range("A1").Font.Size = 14
+        .Range("A1").Font.Bold = True
+        
+        ' 担当者選択
+        .Range("A3").Value = "担当者："
+        .Range("B3").Name = "SelectedUser"
+        
+        ' ヘッダー
+        .Range("A5").Value = "WBSコード"
+        .Range("B5").Value = "タスク名"
+        .Range("C5").Value = "プロジェクト"
+        .Range("D5").Value = "優先度"
+        .Range("E5").Value = "ステータス"
+        .Range("F5").Value = "予定終了日"
+        .Range("G5").Value = "進捗率"
+        .Range("H5").Value = "リスク・課題"
+        
+        .Range("A5:H5").Font.Bold = True
+        .Range("A5:H5").Interior.Color = RGB(79, 129, 189)
+        .Range("A5:H5").Font.Color = RGB(255, 255, 255)
+        
+        ' 列幅設定
+        .Columns("A:A").ColumnWidth = 10
+        .Columns("B:B").ColumnWidth = 25
+        .Columns("C:C").ColumnWidth = 20
+        .Columns("D:D").ColumnWidth = 8
+        .Columns("E:E").ColumnWidth = 10
+        .Columns("F:F").ColumnWidth = 12
+        .Columns("G:G").ColumnWidth = 10
+        .Columns("H:H").ColumnWidth = 25
+        
+        .Range("A6:H50").Name = "PersonalTaskArea"
+    End With
+End Sub
+
+' ===============================================
+' ガントチャートシート作成
+' ===============================================
+Sub CreateGanttSheet()
+    Dim ws As Worksheet
+    Set ws = Worksheets.Add
+    ws.Name = WS_GANTT
+    
+    With ws
+        ' タイトル
+        .Range("A1").Value = "ガントチャート"
+        .Range("A1").Font.Size = 14
+        .Range("A1").Font.Bold = True
+        
+        ' ヘッダー
+        .Range("A3").Value = "WBSコード"
+        .Range("B3").Value = "タスク名"
+        .Range("C3").Value = "担当者"
+        .Range("D3").Value = "開始日"
+        .Range("E3").Value = "終了日"
+        
+        .Range("A3:E3").Font.Bold = True
+        .Range("A3:E3").Interior.Color = RGB(79, 129, 189)
+        .Range("A3:E3").Font.Color = RGB(255, 255, 255)
+        
+        ' 列幅設定
+        .Columns("A:A").ColumnWidth = 10
+        .Columns("B:B").ColumnWidth = 25
+        .Columns("C:C").ColumnWidth = 12
+        .Columns("D:E").ColumnWidth = 12
+        
+        ' ガントチャート用の日付軸は動的に生成
+        .Range("F3").Value = "ガントチャート"
+        .Range("F3").Font.Bold = True
+    End With
+End Sub
+
+' ===============================================
+' サンプルデータ挿入
+' ===============================================
+Sub InsertSampleData()
+    Dim ws As Worksheet
+    Set ws = Worksheets(WS_WBS)
+    
+    ' サンプルデータ配列
+    Dim sampleData As Variant
+    sampleData = Array( _
+        Array("1.1", "要件定義書作成", "建設現場向け作業ナビシステム", "田中太郎", "高", "完了", "2024-01-15", "2024-01-25", "2024-01-15", "2024-01-24", "8", "100", "", "要件定義書", "", "期日前に完了"), _
+        Array("1.2", "UI/UX設計", "建設現場向け作業ナビシステム", "佐藤花子", "高", "進行中", "2024-01-26", "2024-02-10", "2024-01-28", "", "12", "75", "1.1", "画面設計書", "仕様変更の可能性あり", ""), _
+        Array("1.3", "データベース設計", "建設現場向け作業ナビシステム", "山田次郎", "高", "進行中", "2024-02-01", "2024-02-15", "2024-02-01", "", "10", "60", "1.1", "DB設計書", "", ""), _
+        Array("2.1", "環境構築", "サブプロジェクト1", "鈴木一郎", "中", "完了", "2024-01-20", "2024-01-30", "2024-01-20", "2024-01-29", "5", "100", "", "環境設定書", "", ""), _
+        Array("2.2", "基本機能開発", "サブプロジェクト1", "高橋美咲", "中", "進行中", "2024-02-01", "2024-02-20", "2024-02-03", "", "15", "40", "2.1", "プログラム", "人員不足により遅延の可能性", ""), _
+        Array("3.1", "調査・分析", "サブプロジェクト2", "田中太郎", "低", "未着手", "2024-02-15", "2024-03-01", "", "", "8", "0", "", "調査報告書", "", "リソース確保後に開始予定") _
+    )
+    
+    ' データ挿入
+    Dim i As Integer
+    For i = 0 To UBound(sampleData)
+        Dim j As Integer
+        For j = 0 To UBound(sampleData(i))
+            ws.Cells(i + 2, j + 1).Value = sampleData(i)(j)
+        Next j
+    Next i
+    
+    ' 入力規則設定
+    Call SetValidationRules
+    
+    ' 条件付き書式設定
+    Call SetConditionalFormatting
+End Sub
+
+' ===============================================
+' 入力規則設定
+' ===============================================
+Sub SetValidationRules()
+    Dim ws As Worksheet
+    Set ws = Worksheets(WS_WBS)
+    
+    Dim lastRow As Long
+    lastRow = ws.Cells(ws.Rows.Count, 1).End(xlUp).Row
+    
+    ' プロジェクト列（C列）
+    With ws.Range("C2:C" & lastRow + 100).Validation
+        .Delete
+        .Add Type:=xlValidateList, AlertStyle:=xlValidAlertStop, _
+             Formula1:="=" & WS_MASTER & "!$C$2:$C$10"
+    End With
+    
+    ' 担当者列（D列）
+    With ws.Range("D2:D" & lastRow + 100).Validation
+        .Delete
+        .Add Type:=xlValidateList, AlertStyle:=xlValidAlertStop, _
+             Formula1:="=" & WS_MASTER & "!$A$2:$A$10"
+    End With
+    
+    ' 優先度列（E列）
+    With ws.Range("E2:E" & lastRow + 100).Validation
+        .Delete
+        .Add Type:=xlValidateList, AlertStyle:=xlValidAlertStop, _
+             Formula1:="=" & WS_MASTER & "!$E$2:$E$4"
+    End With
+    
+    ' ステータス列（F列）
+    With ws.Range("F2:F" & lastRow + 100).Validation
+        .Delete
+        .Add Type:=xlValidateList, AlertStyle:=xlValidAlertStop, _
+             Formula1:="=" & WS_MASTER & "!$G$2:$G$6"
+    End With
+    
+    ' 進捗率列（L列）
+    With ws.Range("L2:L" & lastRow + 100).Validation
+        .Delete
+        .Add Type:=xlValidateWholeNumber, AlertStyle:=xlValidAlertStop, _
+             Minimum:=0, Maximum:=100
+    End With
+End Sub
+
+' ===============================================
+' 条件付き書式設定
+' ===============================================
+Sub SetConditionalFormatting()
+    Dim ws As Worksheet
+    Set ws = Worksheets(WS_WBS)
+    
+    Dim lastRow As Long
+    lastRow = ws.Cells(ws.Rows.Count, 1).End(xlUp).Row
+    
+    ' ステータス列の条件付き書式
+    With ws.Range("F2:F" & lastRow)
+        .FormatConditions.Delete
+        
+        ' 完了
+        .FormatConditions.Add Type:=xlCellValue, Operator:=xlEqual, Formula1:="完了"
+        .FormatConditions(.FormatConditions.Count).Interior.Color = RGB(144, 238, 144)
+        
+        ' 進行中
+        .FormatConditions.Add Type:=xlCellValue, Operator:=xlEqual, Formula1:="進行中"
+        .FormatConditions(.FormatConditions.Count).Interior.Color = RGB(255, 255, 0)
+        
+        ' 課題あり
+        .FormatConditions.Add Type:=xlCellValue, Operator:=xlEqual, Formula1:="課題あり"
+        .FormatConditions(.FormatConditions.Count).Interior.Color = RGB(255, 192, 203)
+        
+        ' 保留
+        .FormatConditions.Add Type:=xlCellValue, Operator:=xlEqual, Formula1:="保留"
+        .FormatConditions(.FormatConditions.Count).Interior.Color = RGB(211, 211, 211)
+    End With
+    
+    ' 進捗率列のデータバー
+    With ws.Range("L2:L" & lastRow)
+        .FormatConditions.Delete
+        .FormatConditions.AddDatabar
+        .FormatConditions(.FormatConditions.Count).BarColor.Color = RGB(0, 176, 80)
+    End With
+    
+    ' 遅延タスクのハイライト（行全体）
+    With ws.Range("A2:P" & lastRow)
+        .FormatConditions.Add Type:=xlExpression, Formula1:= _
+            "=AND($F2<>""完了"",$H2<TODAY(),$H2<>"""")"
+        .FormatConditions(.FormatConditions.Count).Interior.Color = RGB(255, 199, 206)
+    End With
+End Sub
+
+' ===============================================
+' ダッシュボード更新
+' ===============================================
+Sub UpdateDashboard()
+    Dim wsWBS As Worksheet, wsDash As Worksheet
+    Set wsWBS = Worksheets(WS_WBS)
+    Set wsDash = Worksheets(WS_DASHBOARD)
+    
+    Dim lastRow As Long
+    lastRow = wsWBS.Cells(wsWBS.Rows.Count, 1).End(xlUp).Row
+    
+    If lastRow < 2 Then Exit Sub
+    
+    ' KPI計算
+    Dim totalTasks As Long, completedTasks As Long, inProgressTasks As Long, delayedTasks As Long
+    Dim totalProgress As Double
+    Dim i As Long
+    
+    For i = 2 To lastRow
+        If wsWBS.Cells(i, 1).Value <> "" Then
+            totalTasks = totalTasks + 1
+            totalProgress = totalProgress + wsWBS.Cells(i, 12).Value ' 進捗率
+            
+            Select Case wsWBS.Cells(i, 6).Value ' ステータス
+                Case "完了"
+                    completedTasks = completedTasks + 1
+                Case "進行中"
+                    inProgressTasks = inProgressTasks + 1
+            End Select
+            
+            ' 遅延チェック
+            If wsWBS.Cells(i, 6).Value <> "完了" And _
+               wsWBS.Cells(i, 8).Value <> "" And _
+               wsWBS.Cells(i, 8).Value < Date Then
+                delayedTasks = delayedTasks + 1
+            End If
+        End If
+    Next i
+    
+    ' KPI更新
+    wsDash.Range("TotalTasks").Value = totalTasks
+    wsDash.Range("CompletedTasks").Value = completedTasks
+    wsDash.Range("InProgressTasks").Value = inProgressTasks
+    wsDash.Range("DelayedTasks").Value = delayedTasks
+    
+    If totalTasks > 0 Then
+        wsDash.Range("OverallProgress").Value = Format(totalProgress / totalTasks, "0") & "%"
+    Else
+        wsDash.Range("OverallProgress").Value = "0%"
+    End If
+    
+    ' アラート更新
+    Call UpdateAlerts
+    
+    ' プロジェクト別サマリー更新
+    Call UpdateProjectSummary
+    
+    ' 担当者別サマリー更新
+    Call UpdateUserSummary
+    
+    ' 更新日時
+    wsDash.Range("LastUpdate").Value = Format(Now, "yyyy/mm/dd hh:mm")
+End Sub
+
+' ===============================================
+' アラート更新
+' ===============================================
+Sub UpdateAlerts()
+    Dim wsWBS As Worksheet, wsDash As Worksheet
+    Set wsWBS = Worksheets(WS_WBS)
+    Set wsDash = Worksheets(WS_DASHBOARD)
+    
+    ' アラートエリアをクリア
+    wsDash.Range("AlertArea").ClearContents
+    wsDash.Range("AlertArea").Interior.Color = xlNone
+    
+    Dim alertRow As Long
+    alertRow = 11
+    
+    Dim lastRow As Long
+    lastRow = wsWBS.Cells(wsWBS.Rows.Count, 1).End(xlUp).Row
+    
+    Dim i As Long
+    For i = 2 To lastRow
+        If wsWBS.Cells(i, 1).Value <> "" Then
+            ' 遅延チェック
+            If wsWBS.Cells(i, 6).Value <> "完了" And _
+               wsWBS.Cells(i, 8).Value <> "" And _
+               wsWBS.Cells(i, 8).Value < Date Then
+                wsDash.Cells(alertRow, 1).Value = "【遅延】" & wsWBS.Cells(i, 2).Value
+                wsDash.Cells(alertRow, 1).Interior.Color = RGB(255, 199, 206)
+                alertRow = alertRow + 1
+            End If
+            
+            ' 当日期限チェック
+            If wsWBS.Cells(i, 6).Value <> "完了" And _
+               wsWBS.Cells(i, 8).Value = Date Then
+                wsDash.Cells(alertRow, 1).Value = "【本日期限】" & wsWBS.Cells(i, 2).Value
+                wsDash.Cells(alertRow, 1).Interior.Color = RGB(255, 235, 156)
+                alertRow = alertRow + 1
+            End If
+            
+            ' 高優先度で進捗遅れ
+            If wsWBS.Cells(i, 5).Value = "高" And _
+               wsWBS.Cells(i, 6).Value <> "完了" And _
+               wsWBS.Cells(i, 12).Value < 50 Then
+                wsDash.Cells(alertRow, 1).Value = "【高優先度遅れ】" & wsWBS.Cells(i, 2).Value
+                wsDash.Cells(alertRow, 1).Interior.Color = RGB(255, 192, 203)
+                alertRow = alertRow + 1
+            End If
+        End If
+        
+        If alertRow > 15 Then Exit For
+    Next i
+    
+    If alertRow = 11 Then
+        wsDash.Cells(11, 1).Value = "現在、重要なアラートはありません"
+        wsDash.Cells(11, 1).Interior.Color = RGB(144, 238, 144)
+    End If
+End Sub
+
+' ===============================================
+' プロジェクト別サマリー更新
+' ===============================================
+Sub UpdateProjectSummary()
+    Dim wsWBS As Worksheet, wsDash As Worksheet, wsMaster As Worksheet
+    Set wsWBS = Worksheets(WS_WBS)
+    Set wsDash = Worksheets(WS_DASHBOARD)
+    Set wsMaster = Worksheets(WS_MASTER)
+    
+    ' サマリーエリアをクリア
+    wsDash.Range("ProjectSummary").ClearContents
+    
+    Dim lastRow As Long
+    lastRow = wsWBS.Cells(wsWBS.Rows.Count, 1).End(xlUp).Row
+    
+    ' プロジェクトマスタから取得
+    Dim projectRow As Long
+    projectRow = 19
+    
+    Dim masterRow As Long
+    For masterRow = 2 To 10
+        If wsMaster.Cells(masterRow, 3).Value <> "" Then
+            Dim projectName As String
+            projectName = wsMaster.Cells(masterRow, 3).Value
+            
+            Dim totalTasks As Long, completedTasks As Long, inProgressTasks As Long, delayedTasks As Long
+            
+            ' 該当プロジェクトのタスクを集計
+            Dim i As Long
+            For i = 2 To lastRow
+                If wsWBS.Cells(i, 3).Value = projectName Then
+                    totalTasks = totalTasks + 1
+                    
+                    Select Case wsWBS.Cells(i, 6).Value
+                        Case "完了"
+                            completedTasks = completedTasks + 1
+                        Case "進行中"
+                            inProgressTasks = inProgressTasks + 1
+                    End Select
+                    
+                    ' 遅延チェック
+                    If wsWBS.Cells(i, 6).Value <> "完了" And _
+                       wsWBS.Cells(i, 8).Value <> "" And _
+                       wsWBS.Cells(i, 8).Value < Date Then
+                        delayedTasks = delayedTasks + 1
+                    End If
+                End If
+            Next i
+            
+            If totalTasks > 0 Then
+                wsDash.Cells(projectRow, 1).Value = projectName
+                wsDash.Cells(projectRow, 2).Value = totalTasks
+                wsDash.Cells(projectRow, 3).Value = completedTasks
+                wsDash.Cells(projectRow, 4).Value = inProgressTasks
+                wsDash.Cells(projectRow, 5).Value = delayedTasks
+                wsDash.Cells(projectRow, 6).Value = Format(completedTasks / totalTasks, "0%")
+                projectRow = projectRow + 1
+            End If
+        End If
+    Next masterRow
+End Sub
+
+' ===============================================
+' 担当者別サマリー更新
+' ===============================================
+Sub UpdateUserSummary()
+    Dim wsWBS As Worksheet, wsDash As Worksheet, wsMaster As Worksheet
+    Set wsWBS = Worksheets(WS_WBS)
+    Set wsDash = Worksheets(WS_DASHBOARD)
+    Set wsMaster = Worksheets(WS_MASTER)
+    
+    ' サマリーエリアをクリア
+    wsDash.Range("UserSummary").ClearContents
+    
+    Dim lastRow As Long
+    lastRow = wsWBS.Cells(wsWBS.Rows.Count, 1).End(xlUp).Row
+    
+    ' 担当者マスタから取得
+    Dim userRow As Long
+    userRow = 5
+    
+    Dim masterRow As Long
+    For masterRow = 2 To 10
+        If wsMaster.Cells(masterRow, 1).Value <> "" Then
+            Dim userName As String
+            userName = wsMaster.Cells(masterRow, 1).Value
+            
+            Dim totalTasks As Long, completedTasks As Long, inProgressTasks As Long, delayedTasks As Long
+            
+            ' 該当担当者のタスクを集計
+            Dim i As Long
+            For i = 2 To lastRow
+                If wsWBS.Cells(i, 4).Value = userName Then
+                    totalTasks = totalTasks + 1
+                    
+                    Select Case wsWBS.Cells(i, 6).Value
+                        Case "完了"
+                            completedTasks = completedTasks + 1
+                        Case "進行中"
+                            inProgressTasks = inProgressTasks + 1
+                    End Select
+                    
+                    ' 遅延チェック
+                    If wsWBS.Cells(i, 6).Value <> "完了" And _
+                       wsWBS.Cells(i, 8).Value <> "" And _
+                       wsWBS.Cells(i, 8).Value < Date Then
+                        delayedTasks = delayedTasks + 1
+                    End If
+                End If
+            Next i
+            
+            If totalTasks > 0 Then
+                wsDash.Cells(userRow, 8).Value = userName  ' H列
+                wsDash.Cells(userRow, 9).Value = totalTasks  ' I列
+                wsDash.Cells(userRow, 10).Value = completedTasks  ' J列
+                wsDash.Cells(userRow, 11).Value = inProgressTasks  ' K列
+                wsDash.Cells(userRow, 12).Value = delayedTasks  ' L列
+                userRow = userRow + 1
+            End If
+        End If
+    Next masterRow
+End Sub
+
+' ===============================================
+' 個人ビュー更新
+' ===============================================
+Sub UpdatePersonalView()
+    Dim wsWBS As Worksheet, wsPersonal As Worksheet, wsMaster As Worksheet
+    Set wsWBS = Worksheets(WS_WBS)
+    Set wsPersonal = Worksheets(WS_PERSONAL)
+    Set wsMaster = Worksheets(WS_MASTER)
+    
+    ' 担当者選択リストを設定
+    With wsPersonal.Range("SelectedUser").Validation
+        .Delete
+        .Add Type:=xlValidateList, AlertStyle:=xlValidAlertStop, _
+             Formula1:="=" & WS_MASTER & "!$A$2:$A$10"
+    End With
+    
+    ' デフォルト値設定
+    If wsPersonal.Range("SelectedUser").Value = "" Then
+        wsPersonal.Range("SelectedUser").Value = wsMaster.Cells(2, 1).Value
+    End If
+    
+    Call FilterPersonalTasks
+End Sub
+
+' ===============================================
+' 個人タスクフィルタリング
+' ===============================================
+Sub FilterPersonalTasks()
+    Dim wsWBS As Worksheet, wsPersonal As Worksheet
+    Set wsWBS = Worksheets(WS_WBS)
+    Set wsPersonal = Worksheets(WS_PERSONAL)
+    
+    ' エリアをクリア
+    wsPersonal.Range("PersonalTaskArea").ClearContents
+    wsPersonal.Range("PersonalTaskArea").Interior.Color = xlNone
+    
+    Dim selectedUser As String
+    selectedUser = wsPersonal.Range("SelectedUser").Value
+    
+    If selectedUser = "" Then Exit Sub
+    
+    Dim lastRow As Long
+    lastRow = wsWBS.Cells(wsWBS.Rows.Count, 1).End(xlUp).Row
+    
+    Dim personalRow As Long
+    personalRow = 6
+    
+    Dim i As Long
+    For i = 2 To lastRow
+        If wsWBS.Cells(i, 4).Value = selectedUser Then
+            wsPersonal.Cells(personalRow, 1).Value = wsWBS.Cells(i, 1).Value  ' WBSコード
+            wsPersonal.Cells(personalRow, 2).Value = wsWBS.Cells(i, 2).Value  ' タスク名
+            wsPersonal.Cells(personalRow, 3).Value = wsWBS.Cells(i, 3).Value  ' プロジェクト
+            wsPersonal.Cells(personalRow, 4).Value = wsWBS.Cells(i, 5).Value  ' 優先度
+            wsPersonal.Cells(personalRow, 5).Value = wsWBS.Cells(i, 6).Value  ' ステータス
+            wsPersonal.Cells(personalRow, 6).Value = wsWBS.Cells(i, 8).Value  ' 予定終了日
+            wsPersonal.Cells(personalRow, 7).Value = wsWBS.Cells(i, 12).Value & "%"  ' 進捗率
+            wsPersonal.Cells(personalRow, 8).Value = wsWBS.Cells(i, 15).Value  ' リスク・課題
+            
+            ' 遅延タスクをハイライト
+            If wsWBS.Cells(i, 6).Value <> "完了" And _
+               wsWBS.Cells(i, 8).Value <> "" And _
+               wsWBS.Cells(i, 8).Value < Date Then
+                wsPersonal.Range(wsPersonal.Cells(personalRow, 1), wsPersonal.Cells(personalRow, 8)).Interior.Color = RGB(255, 199, 206)
+            End If
+            
+            personalRow = personalRow + 1
+        End If
+    Next i
+End Sub
+
+' ===============================================
+' ガントチャート更新
+' ===============================================
+Sub UpdateGanttChart()
+    Dim wsWBS As Worksheet, wsGantt As Worksheet
+    Set wsWBS = Worksheets(WS_WBS)
+    Set wsGantt = Worksheets(WS_GANTT)
+    
+    ' 既存データをクリア
+    wsGantt.Range("A4:XFD1048576").ClearContents
+    wsGantt.Range("A4:XFD1048576").Interior.Color = xlNone
+    
+    Dim lastRow As Long
+    lastRow = wsWBS.Cells(wsWBS.Rows.Count, 1).End(xlUp).Row
+    
+    If lastRow < 2 Then Exit Sub
+    
+    ' 日付範囲を計算
+    Dim minDate As Date, maxDate As Date
+    minDate = DateSerial(2099, 12, 31)
+    maxDate = DateSerial(1900, 1, 1)
+    
+    Dim i As Long
+    For i = 2 To lastRow
+        If wsWBS.Cells(i, 7).Value <> "" And wsWBS.Cells(i, 8).Value <> "" Then
+            If wsWBS.Cells(i, 7).Value < minDate Then minDate = wsWBS.Cells(i, 7).Value
+            If wsWBS.Cells(i, 8).Value > maxDate Then maxDate = wsWBS.Cells(i, 8).Value
+        End If
+    Next i
+    
+    If minDate = DateSerial(2099, 12, 31) Then Exit Sub
+    
+    ' 日付ヘッダーを作成
+    Dim dateCol As Long
+    dateCol = 6
+    Dim currentDate As Date
+    currentDate = minDate
+    
+    While currentDate <= maxDate
+        wsGantt.Cells(3, dateCol).Value = Format(currentDate, "mm/dd")
+        wsGantt.Cells(3, dateCol).Font.Size = 8
+        wsGantt.Columns(dateCol).ColumnWidth = 3
+        currentDate = currentDate + 1
+        dateCol = dateCol + 1
+    Wend
+    
+    ' タスクデータを配置
+    Dim ganttRow As Long
+    ganttRow = 4
+    
+    For i = 2 To lastRow
+        If wsWBS.Cells(i, 1).Value <> "" Then
+            wsGantt.Cells(ganttRow, 1).Value = wsWBS.Cells(i, 1).Value  ' WBSコード
+            wsGantt.Cells(ganttRow, 2).Value = wsWBS.Cells(i, 2).Value  ' タスク名
+            wsGantt.Cells(ganttRow, 3).Value = wsWBS.Cells(i, 4).Value  ' 担当者
+            wsGantt.Cells(ganttRow, 4).Value = wsWBS.Cells(i, 7).Value  ' 開始日
+            wsGantt.Cells(ganttRow, 5).Value = wsWBS.Cells(i, 8).Value  ' 終了日
+            
+            ' ガントバーを描画
+            If wsWBS.Cells(i, 7).Value <> "" And wsWBS.Cells(i, 8).Value <> "" Then
+                Dim startCol As Long, endCol As Long
+                startCol = 6 + (wsWBS.Cells(i, 7).Value - minDate)
+                endCol = 6 + (wsWBS.Cells(i, 8).Value - minDate)
+                
+                Dim barColor As Long
+                Select Case wsWBS.Cells(i, 6).Value
+                    Case "完了"
+                        barColor = RGB(144, 238, 144)  ' 緑
+                    Case "進行中"
+                        barColor = RGB(255, 255, 0)   ' 黄
+                    Case "課題あり"
+                        barColor = RGB(255, 192, 203) ' ピンク
+                    Case Else
+                        barColor = RGB(211, 211, 211) ' グレー
+                End Select
+                
+                wsGantt.Range(wsGantt.Cells(ganttRow, startCol), wsGantt.Cells(ganttRow, endCol)).Interior.Color = barColor
+                wsGantt.Range(wsGantt.Cells(ganttRow, startCol), wsGantt.Cells(ganttRow, endCol)).Borders.LineStyle = xlContinuous
+            End If
+            
+            ganttRow = ganttRow + 1
+        End If
+    Next i
+End Sub
+
+' ===============================================
+' 新規タスク追加
+' ===============================================
+Sub AddNewTask()
+    Dim ws As Worksheet
+    Set ws = Worksheets(WS_WBS)
+    
+    Dim lastRow As Long
+    lastRow = ws.Cells(ws.Rows.Count, 1).End(xlUp).Row + 1
+    
+    ' 新規行を選択
+    ws.Cells(lastRow, 1).Select
+    
+    MsgBox "新しい行が追加されました。データを入力してください。", vbInformation, "新規タスク追加"
+End Sub
+
+' ===============================================
+' タスク削除
+' ===============================================
+Sub DeleteSelectedTask()
+    Dim ws As Worksheet
+    Set ws = Worksheets(WS_WBS)
+    
+    If ActiveSheet.Name <> WS_WBS Then
+        MsgBox "WBS管理シートでタスクを選択してください。", vbExclamation
+        Exit Sub
+    End If
+    
+    Dim selectedRow As Long
+    selectedRow = ActiveCell.Row
+    
+    If selectedRow < 2 Then
+        MsgBox "ヘッダー行は削除できません。", vbExclamation
+        Exit Sub
+    End If
+    
+    If ws.Cells(selectedRow, 1).Value = "" Then
+        MsgBox "空の行です。", vbInformation
+        Exit Sub
+    End If
+    
+    Dim result As VbMsgBoxResult
+    result = MsgBox("選択されたタスクを削除しますか？" & vbCrLf & _
+                   "タスク名: " & ws.Cells(selectedRow, 2).Value, vbYesNo + vbQuestion)
+    
+    If result = vbYes Then
+        ws.Rows(selectedRow).Delete
+        MsgBox "タスクを削除しました。", vbInformation
+        Call UpdateDashboard
+        Call UpdatePersonalView
+        Call UpdateGanttChart
+    End If
+End Sub
+
+' ===============================================
+' 全体更新
+' ===============================================
+Sub RefreshAllSheets()
+    Application.ScreenUpdating = False
+    
+    Call UpdateDashboard
+    Call UpdatePersonalView
+    Call UpdateGanttChart
+    
+    Application.ScreenUpdating = True
+    
+    MsgBox "全シートを更新しました。", vbInformation
+End Sub
+
+' ===============================================
+' データエクスポート
+' ===============================================
+Sub ExportWBSData()
+    Dim ws As Worksheet
+    Set ws = Worksheets(WS_WBS)
+    
+    Dim lastRow As Long, lastCol As Long
+    lastRow = ws.Cells(ws.Rows.Count, 1).End(xlUp).Row
+    lastCol = ws.Cells(1, ws.Columns.Count).End(xlToLeft).Column
+    
+    If lastRow < 2 Then
+        MsgBox "エクスポートするデータがありません。", vbInformation
+        Exit Sub
+    End If
+    
+    ' 新しいワークブックを作成
+    Dim newWb As Workbook
+    Set newWb = Workbooks.Add
+    
+    ' データをコピー
+    ws.Range(ws.Cells(1, 1), ws.Cells(lastRow, lastCol)).Copy
+    newWb.Sheets(1).Range("A1").PasteSpecial Paste:=xlPasteValues
+    newWb.Sheets(1).Range("A1").PasteSpecial Paste:=xlPasteFormats
+    
+    Application.CutCopyMode = False
+    
+    ' ファイル名を作成
+    Dim fileName As String
+    fileName = "WBSデータ_" & Format(Date, "yyyymmdd") & ".xlsx"
+    
+    ' 保存先を指定
+    Dim filePath As String
+    filePath = Application.GetSaveAsFilename(fileName, "Excel Files (*.xlsx), *.xlsx")
+    
+    If filePath <> "False" Then
+        newWb.SaveAs filePath
+        newWb.Close
+        MsgBox "データを " & filePath & " にエクスポートしました。", vbInformation
+    Else
+        newWb.Close False
+    End If
+End Sub
+
+' ===============================================
+' データインポート
+' ===============================================
+Sub ImportWBSData()
+    Dim filePath As String
+    filePath = Application.GetOpenFilename("Excel Files (*.xlsx), *.xlsx")
+    
+    If filePath = "False" Then Exit Sub
+    
+    Dim result As VbMsgBoxResult
+    result = MsgBox("現在のデータを削除して、インポートしたデータで置き換えますか？", _
+                   vbYesNo + vbQuestion, "データインポート")
+    
+    If result <> vbYes Then Exit Sub
+    
+    On Error GoTo ErrorHandler
+    
+    Dim importWb As Workbook
+    Set importWb = Workbooks.Open(filePath)
+    
+    Dim importWs As Worksheet
+    Set importWs = importWb.Sheets(1)
+    
+    Dim ws As Worksheet
+    Set ws = Worksheets(WS_WBS)
+    
+    ' 既存データを削除（ヘッダーは残す）
+    Dim lastRow As Long
+    lastRow = ws.Cells(ws.Rows.Count, 1).End(xlUp).Row
+    If lastRow > 1 Then
+        ws.Range("A2:P" & lastRow).ClearContents
+    End If
+    
+    ' インポートデータをコピー
+    Dim importLastRow As Long
+    importLastRow = importWs.Cells(importWs.Rows.Count, 1).End(xlUp).Row
+    
+    If importLastRow > 1 Then
+        importWs.Range("A2:P" & importLastRow).Copy
+        ws.Range("A2").PasteSpecial Paste:=xlPasteValues
+        Application.CutCopyMode = False
+    End If
+    
+    importWb.Close False
+    
+    ' 入力規則と条件付き書式を再設定
+    Call SetValidationRules
+    Call SetConditionalFormatting
+    
+    ' 全シート更新
+    Call RefreshAllSheets
+    
+    MsgBox "データをインポートしました。", vbInformation
+    Exit Sub
+    
+ErrorHandler:
+    MsgBox "インポート中にエラーが発生しました: " & Err.Description, vbCritical
+    If Not importWb Is Nothing Then importWb.Close False
+End Sub
+
+' ===============================================
+' 進捗レポート生成
+' ===============================================
+Sub GenerateProgressReport()
+    Dim ws As Worksheet
+    Set ws = Worksheets.Add
+    ws.Name = "進捗レポート_" & Format(Date, "mmdd")
+    
+    With ws
+        ' タイトル
+        .Range("A1").Value = "WBS進捗レポート"
+        .Range("A1").Font.Size = 16
+        .Range("A1").Font.Bold = True
+        .Range("A2").Value = "作成日: " & Format(Date, "yyyy年mm月dd日")
+        
+        ' サマリー情報をダッシュボードから取得
+        Dim wsDash As Worksheet
+        Set wsDash = Worksheets(WS_DASHBOARD)
+        
+        .Range("A4").Value = "■ プロジェクト概要"
+        .Range("A4").Font.Bold = True
+        
+        .Range("A5").Value = "総タスク数: " & wsDash.Range("TotalTasks").Value
+        .Range("A6").Value = "完了タスク数: " & wsDash.Range("CompletedTasks").Value
+        .Range("A7").Value = "進行中タスク数: " & wsDash.Range("InProgressTasks").Value
+        .Range("A8").Value = "遅延タスク数: " & wsDash.Range("DelayedTasks").Value
+        .Range("A9").Value = "全体進捗率: " & wsDash.Range("OverallProgress").Value
+        
+        ' 遅延タスク詳細
+        .Range("A11").Value = "■ 遅延タスク詳細"
+        .Range("A11").Font.Bold = True
+        .Range("A11").Font.Color = RGB(255, 0, 0)
+        
+        .Range("A12").Value = "WBSコード"
+        .Range("B12").Value = "タスク名"
+        .Range("C12").Value = "担当者"
+        .Range("D12").Value = "予定終了日"
+        .Range("E12").Value = "進捗率"
+        
+        .Range("A12:E12").Font.Bold = True
+        .Range("A12:E12").Interior.Color = RGB(217, 217, 217)
+        
+        ' 遅延タスクデータを抽出
+        Dim wsWBS As Worksheet
+        Set wsWBS = Worksheets(WS_WBS)
+        
+        Dim reportRow As Long
+        reportRow = 13
+        
+        Dim lastRow As Long
+        lastRow = wsWBS.Cells(wsWBS.Rows.Count, 1).End(xlUp).Row
+        
+        Dim i As Long
+        For i = 2 To lastRow
+            If wsWBS.Cells(i, 6).Value <> "完了" And _
+               wsWBS.Cells(i, 8).Value <> "" And _
+               wsWBS.Cells(i, 8).Value < Date Then
+                
+                .Cells(reportRow, 1).Value = wsWBS.Cells(i, 1).Value  ' WBSコード
+                .Cells(reportRow, 2).Value = wsWBS.Cells(i, 2).Value  ' タスク名
+                .Cells(reportRow, 3).Value = wsWBS.Cells(i, 4).Value  ' 担当者
+                .Cells(reportRow, 4).Value = wsWBS.Cells(i, 8).Value  ' 予定終了日
+                .Cells(reportRow, 5).Value = wsWBS.Cells(i, 12).Value & "%"  ' 進捗率
+                
+                reportRow = reportRow + 1
+            End If
+        Next i
+        
+        ' 列幅調整
+        .Columns("A:A").ColumnWidth = 12
+        .Columns("B:B").ColumnWidth = 30
+        .Columns("C:C").ColumnWidth = 12
+        .Columns("D:D").ColumnWidth = 12
+        .Columns("E:E").ColumnWidth = 10
+    End With
+    
+    MsgBox "進捗レポートを生成しました。", vbInformation
+End Sub
+
+' ===============================================
+' ワークシート変更イベント（個人ビュー用）
+' ===============================================
+Private Sub Worksheet_Change(ByVal Target As Range)
+    If ActiveSheet.Name = WS_PERSONAL Then
+        If Not Intersect(Target, Range("SelectedUser")) Is Nothing Then
+            Call FilterPersonalTasks
+        End If
+    End If
+End Sub
+
+' ===============================================
+' ボタン用のマクロ設定手順（コメント）
+' ===============================================
+'
+' 以下のボタンを各シートに配置してください：
+'
+' 【WBS管理シート】
+' - 新規タスク追加ボタン → AddNewTask
+' - 選択タスク削除ボタン → DeleteSelectedTask
+' - 全体更新ボタン → RefreshAllSheets
+' - エクスポートボタン → ExportWBSData
+' - インポートボタン → ImportWBSData
+'
+' 【ダッシュボードシート】
+' - 更新ボタン → UpdateDashboard
+' - 進捗レポート生成ボタン → GenerateProgressReport
+'
+' 【個人ビューシート】
+' - 更新ボタン → UpdatePersonalView
+'
+' 【ガントチャートシート】
+' - 更新ボタン → UpdateGanttChart
+'
+' ボタン配置方法：
+' 1. 開発タブ → 挿入 → ボタン（フォームコントロール）
+' 2. ボタンを配置し、対応するマクロを割り当て
+'
+' 初期化実行方法：
+' 1. Alt + F11 でVBAエディタを開く
+' 2. このコードを標準モジュールに貼り付け
+' 3. InitializeWBSSystem を実行
