@@ -1,13 +1,14 @@
+Attribute VB_Name = "Module2"
 '================================================================================
-' æ©Ÿèƒ½: ã€Œãƒ‡ãƒ¼ã‚¿ç™»éŒ²ã€ã‚·ãƒ¼ãƒˆã‹ã‚‰ã€Œæœˆæ¬¡ãƒ‡ãƒ¼ã‚¿ã€ã‚·ãƒ¼ãƒˆã¸ãƒ‡ãƒ¼ã‚¿ã‚’è»¢è¨˜ãƒ»é›†è¨ˆã™ã‚‹
-'       ãƒ‡ãƒ¼ã‚¿æ¶ˆå»æ©Ÿèƒ½ã‚’åˆ¥ã®ãƒã‚¯ãƒ­ã¨ã—ã¦åˆ†é›¢
-' ä½œæˆè€…: Gemini
-' ãƒãƒ¼ã‚¸ãƒ§ãƒ³: 1.0 (ãƒªãƒ•ã‚¡ã‚¯ã‚¿ãƒªãƒ³ã‚°ã€ã‚·ãƒ¼ãƒˆä¿è­·å¯¾å¿œ)
+' ‹@”\: uƒf[ƒ^“o˜^vƒV[ƒg‚©‚çuŒŸƒf[ƒ^vƒV[ƒg‚Öƒf[ƒ^‚ğ“]‹LEWŒv‚·‚é
+'       ƒf[ƒ^Á‹‹@”\‚ğ•Ê‚Ìƒ}ƒNƒ‚Æ‚µ‚Ä•ª—£
+' ì¬Ò: Gemini
+' ƒo[ƒWƒ‡ƒ“: 1.0 (ƒŠƒtƒ@ƒNƒ^ƒŠƒ“ƒOAƒV[ƒg•ÛŒì‘Î‰)
 '================================================================================
 
 Option Explicit
 
-'--- Windows APIã®å®£è¨€ (64bit/32bitä¸¡å¯¾å¿œ) ---
+'--- Windows API‚ÌéŒ¾ (64bit/32bit—¼‘Î‰) ---
 #If VBA7 Then
     Private Declare PtrSafe Function OpenClipboard Lib "user32" (ByVal hwnd As LongPtr) As Long
     Private Declare PtrSafe Function EmptyClipboard Lib "user32" () As Long
@@ -28,13 +29,13 @@ Option Explicit
     Private Declare Function lstrcpyW Lib "kernel32" (ByVal lpString1 As Any, ByVal lpString2 As Any) As Long
 #End If
 
-' --- å®šæ•°å®£è¨€ ---
+' --- ’è”éŒ¾ ---
 Private Const GMEM_MOVEABLE As Long = &H2
 Private Const CF_UNICODETEXT As Long = 13
 
-Private Const DATA_SHEET_NAME As String = "ãƒ‡ãƒ¼ã‚¿ç™»éŒ²"
-Private Const ACQUISITION_SHEET_NAME As String = "ãƒ‡ãƒ¼ã‚¿å–å¾—"
-Private Const MONTHLY_SHEET_NAME As String = "æœˆæ¬¡ãƒ‡ãƒ¼ã‚¿"
+Private Const DATA_SHEET_NAME As String = "ƒf[ƒ^“o˜^"
+Private Const ACQUISITION_SHEET_NAME As String = "ƒf[ƒ^æ“¾"
+Private Const MONTHLY_SHEET_NAME As String = "ŒŸƒf[ƒ^"
 
 Private Const DATE_CELL_PRIORITY As String = "D4"
 Private Const DATE_CELL_NORMAL As String = "D3"
@@ -45,11 +46,11 @@ Private Const MONTHLY_DATA_START_ROW As Long = 10
 Private Const MONTHLY_DATA_END_ROW As Long = 40
 
 '================================================================================
-' â–  ãƒ¡ã‚¤ãƒ³å‡¦ç†: ãƒœã‚¿ãƒ³ã«ç™»éŒ²ã™ã‚‹ãƒ—ãƒ­ã‚·ãƒ¼ã‚¸ãƒ£ (ãƒ‡ãƒ¼ã‚¿è»¢è¨˜)
+' ¡ ƒƒCƒ“ˆ—: ƒ{ƒ^ƒ“‚É“o˜^‚·‚éƒvƒƒV[ƒWƒƒ (ƒf[ƒ^“]‹L)
 '================================================================================
 Sub TransferDataToMonthlySheet()
 
-    ' --- å¤‰æ•°å®£è¨€ ---
+    ' --- •Ï”éŒ¾ ---
     Dim wsData As Worksheet, wsMonthly As Worksheet
     Dim wasMonthlyProtected As Boolean
     Dim targetDate As Date
@@ -57,49 +58,54 @@ Sub TransferDataToMonthlySheet()
     Dim categoryDic As Object
     Dim targetRow As Long
     Dim previewText As String
+    ' ¥¥iV‹Kj•s‘«‹æ•ª‚Ö‚Ì‘Î‰•ûj‚ğ1‰ñ‚¾‚¯‹L˜^‚·‚é«‘ ¥¥
+    Dim addDecision As Object  ' key: ‹æ•ª–¼, value: True=—ñ’Ç‰Á‹–‰Â / False=’Ç‰Á‹‘”Û
+    Set addDecision = CreateObject("Scripting.Dictionary")
+    ' ££ ‚±‚±‚Ü‚ÅV‹K ££
+
     
-    ' --- äº‹å‰æº–å‚™ ---
+    ' --- –‘O€”õ ---
     Application.ScreenUpdating = False
     On Error GoTo ErrorHandler
     
-    ' ãƒ¯ãƒ¼ã‚¯ã‚·ãƒ¼ãƒˆã‚ªãƒ–ã‚¸ã‚§ã‚¯ãƒˆã‚’è¨­å®š
+    ' ƒ[ƒNƒV[ƒgƒIƒuƒWƒFƒNƒg‚ğİ’è
     On Error Resume Next
     Set wsData = ThisWorkbook.Sheets(DATA_SHEET_NAME)
     Set wsMonthly = ThisWorkbook.Sheets(MONTHLY_SHEET_NAME)
     On Error GoTo ErrorHandler
     If wsData Is Nothing Or wsMonthly Is Nothing Then
-        MsgBox "ã€Œ" & DATA_SHEET_NAME & "ã€ã¾ãŸã¯ã€Œ" & MONTHLY_SHEET_NAME & "ã€ã‚·ãƒ¼ãƒˆãŒè¦‹ã¤ã‹ã‚Šã¾ã›ã‚“ã€‚", vbCritical
+        MsgBox "u" & DATA_SHEET_NAME & "v‚Ü‚½‚Íu" & MONTHLY_SHEET_NAME & "vƒV[ƒg‚ªŒ©‚Â‚©‚è‚Ü‚¹‚ñB", vbCritical
         GoTo CleanUp
     End If
     
-    ' --- ã‚·ãƒ¼ãƒˆä¿è­·ã®è§£é™¤ ---
+    ' --- ƒV[ƒg•ÛŒì‚Ì‰ğœ ---
     wasMonthlyProtected = wsMonthly.ProtectContents
     If wasMonthlyProtected Then
         If Not UnprotectSheet(wsMonthly) Then GoTo CleanUp
     End If
 
-    ' --- 1. ç™»éŒ²æ—¥ã®å–å¾—ã¨æ¤œè¨¼ ---
+    ' --- 1. “o˜^“ú‚Ìæ“¾‚ÆŒŸØ ---
     If IsDate(wsData.Range(DATE_CELL_PRIORITY).Value) Then
         targetDate = CDate(wsData.Range(DATE_CELL_PRIORITY).Value)
     ElseIf IsDate(wsData.Range(DATE_CELL_NORMAL).Value) Then
         targetDate = CDate(wsData.Range(DATE_CELL_NORMAL).Value)
     Else
-        MsgBox "ç™»éŒ²æ—¥ï¼ˆD3ã‚»ãƒ«ï¼‰ã¾ãŸã¯ä»»æ„æ—¥ä»˜ï¼ˆD4ã‚»ãƒ«ï¼‰ãŒæœ‰åŠ¹ãªæ—¥ä»˜ã§ã¯ã‚ã‚Šã¾ã›ã‚“ã€‚", vbExclamation
+        MsgBox "“o˜^“úiD3ƒZƒ‹j‚Ü‚½‚Í”CˆÓ“ú•tiD4ƒZƒ‹j‚ª—LŒø‚È“ú•t‚Å‚Í‚ ‚è‚Ü‚¹‚ñB", vbExclamation
         GoTo CleanUp
     End If
     
-    ' --- 2. è»¢è¨˜å…ƒãƒ‡ãƒ¼ã‚¿ã®æœ€çµ‚è¡Œã‚’å–å¾— ---
+    ' --- 2. “]‹LŒ³ƒf[ƒ^‚ÌÅIs‚ğæ“¾ ---
     lastDataRow = wsData.Cells(wsData.Rows.Count, "C").End(xlUp).Row
     If lastDataRow < DATA_START_ROW Then
-        MsgBox "è»¢è¨˜ã™ã‚‹ãƒ‡ãƒ¼ã‚¿ãŒã‚ã‚Šã¾ã›ã‚“ã€‚", vbInformation
+        MsgBox "“]‹L‚·‚éƒf[ƒ^‚ª‚ ‚è‚Ü‚¹‚ñB", vbInformation
         GoTo CleanUp
     End If
     
-    ' --- 3. è»¢è¨˜å…ˆãƒ˜ãƒƒãƒ€ãƒ¼ï¼ˆåŒºåˆ†ï¼‰ã®èª­ã¿è¾¼ã¿ ---
+    ' --- 3. “]‹Læƒwƒbƒ_[i‹æ•ªj‚Ì“Ç‚İ‚İ ---
     Set categoryDic = CreateObject("Scripting.Dictionary")
     Dim lastHeaderCol As Long, c As Long
     lastHeaderCol = wsMonthly.Cells(MONTHLY_HEADER_ROW, wsMonthly.Columns.Count).End(xlToLeft).Column
-    For c = 3 To lastHeaderCol ' Cåˆ—ã‹ã‚‰é–‹å§‹
+    For c = 3 To lastHeaderCol ' C—ñ‚©‚çŠJn
         Dim categoryName As String
         categoryName = CStr(wsMonthly.Cells(MONTHLY_HEADER_ROW, c).Value)
         If categoryName <> "" And Not categoryDic.Exists(categoryName) Then
@@ -107,19 +113,19 @@ Sub TransferDataToMonthlySheet()
         End If
     Next c
     
-    ' --- 4. è»¢è¨˜å…ˆã®æ—¥ä»˜è¡Œã‚’æ¤œç´¢ ---
+    ' --- 4. “]‹Læ‚Ì“ú•ts‚ğŒŸõ ---
     targetRow = FindMatchingDateRow(wsMonthly, targetDate)
     If targetRow = 0 Then
-        MsgBox "è»¢è¨˜å…ˆã‚·ãƒ¼ãƒˆã€Œ" & MONTHLY_SHEET_NAME & "ã€ã«ã€ç™»éŒ²æ—¥ã€Œ" & Format(targetDate, "m/d") & "ã€ãŒè¦‹ã¤ã‹ã‚Šã¾ã›ã‚“ã§ã—ãŸã€‚" & vbCrLf & _
-               "B10:B" & MONTHLY_DATA_END_ROW & "ã®ç¯„å›²ã«æ—¥ä»˜ãŒå­˜åœ¨ã™ã‚‹ã‹ç¢ºèªã—ã¦ãã ã•ã„ã€‚", vbExclamation
+        MsgBox "“]‹LæƒV[ƒgu" & MONTHLY_SHEET_NAME & "v‚ÉA“o˜^“úu" & Format(targetDate, "m/d") & "v‚ªŒ©‚Â‚©‚è‚Ü‚¹‚ñ‚Å‚µ‚½B" & vbCrLf & _
+               "B10:B" & MONTHLY_DATA_END_ROW & "‚Ì”ÍˆÍ‚É“ú•t‚ª‘¶İ‚·‚é‚©Šm”F‚µ‚Ä‚­‚¾‚³‚¢B", vbExclamation
         GoTo CleanUp
     End If
     
-    ' --- 5. è»¢è¨˜å†…å®¹ã®ãƒ—ãƒ¬ãƒ“ãƒ¥ãƒ¼ã‚’ä½œæˆ ---
-    previewText = "ä»¥ä¸‹ã®å†…å®¹ã§ãƒ‡ãƒ¼ã‚¿ã‚’è»¢è¨˜ã—ã¾ã™ã€‚ã‚ˆã‚ã—ã„ã§ã™ã‹ï¼Ÿ" & vbCrLf & vbCrLf
-    previewText = previewText & "ç™»éŒ²æ—¥: " & Format(targetDate, "yyyy/mm/dd") & " (" & wsMonthly.Cells(targetRow, "B").text & ")" & vbCrLf & vbCrLf
+    ' --- 5. “]‹L“à—e‚ÌƒvƒŒƒrƒ…[‚ğì¬ ---
+    previewText = "ˆÈ‰º‚Ì“à—e‚Åƒf[ƒ^‚ğ“]‹L‚µ‚Ü‚·B‚æ‚ë‚µ‚¢‚Å‚·‚©H" & vbCrLf & vbCrLf
+    previewText = previewText & "“o˜^“ú: " & Format(targetDate, "yyyy/mm/dd") & " (" & wsMonthly.Cells(targetRow, "B").text & ")" & vbCrLf & vbCrLf
     previewText = previewText & "--------------------------------------------------" & vbCrLf
-    previewText = previewText & "åŒºåˆ†" & vbTab & " | " & "æ™‚é–“" & vbCrLf
+    previewText = previewText & "‹æ•ª" & vbTab & " | " & "ŠÔ" & vbCrLf
     previewText = previewText & "--------------------------------------------------" & vbCrLf
     
     Dim previewDic As Object
@@ -143,7 +149,7 @@ Sub TransferDataToMonthlySheet()
     Next i
     
     If previewDic.Count = 0 Then
-        MsgBox "è»¢è¨˜ã™ã‚‹æœ‰åŠ¹ãªæ™‚é–“ãƒ‡ãƒ¼ã‚¿ãŒã‚ã‚Šã¾ã›ã‚“ã€‚", vbInformation
+        MsgBox "“]‹L‚·‚é—LŒø‚ÈŠÔƒf[ƒ^‚ª‚ ‚è‚Ü‚¹‚ñB", vbInformation
         GoTo CleanUp
     End If
 
@@ -152,12 +158,12 @@ Sub TransferDataToMonthlySheet()
         previewText = previewText & key & vbTab & " | " & MinutesToHHMMString(previewDic(key)) & vbCrLf
     Next key
     
-    If MsgBox(previewText, vbYesNo + vbQuestion, "è»¢è¨˜å†…å®¹ã®ãƒ—ãƒ¬ãƒ“ãƒ¥ãƒ¼") = vbNo Then
-        MsgBox "å‡¦ç†ã‚’ä¸­æ–­ã—ã¾ã—ãŸã€‚", vbInformation
+    If MsgBox(previewText, vbYesNo + vbQuestion, "“]‹L“à—e‚ÌƒvƒŒƒrƒ…[") = vbNo Then
+        MsgBox "ˆ—‚ğ’†’f‚µ‚Ü‚µ‚½B", vbInformation
         GoTo CleanUp
     End If
 
-    ' --- 6. ãƒ‡ãƒ¼ã‚¿ã‚’ã‚¯ãƒªãƒƒãƒ—ãƒœãƒ¼ãƒ‰ã¸ã‚³ãƒ”ãƒ¼ ---
+    ' --- 6. ƒf[ƒ^‚ğƒNƒŠƒbƒvƒ{[ƒh‚ÖƒRƒs[ ---
     Dim clipboardText As String
     clipboardText = ""
     For i = DATA_START_ROW To lastDataRow
@@ -171,54 +177,67 @@ Sub TransferDataToMonthlySheet()
     If clipboardText <> "" Then
         CopyTextToClipboard clipboardText
     End If
-
-    ' --- 7. ãƒ‡ãƒ¼ã‚¿è»¢è¨˜å‡¦ç† (ã‚·ãƒªã‚¢ãƒ«å€¤ã®ç›´æ¥ã‚³ãƒ”ãƒ¼) ---
+    ' --- 7. ƒf[ƒ^“]‹Lˆ— (ƒVƒŠƒAƒ‹’l‚Ì’¼ÚƒRƒs[) ---
     transferCount = 0
     For i = DATA_START_ROW To lastDataRow
         Dim workNo As String, category As String, timeValue As Variant
         Dim targetCol As Long
 
         If Not (IsEmpty(wsData.Cells(i, "C").Value) And IsEmpty(wsData.Cells(i, "D").Value)) Then
+
+            ' •K{ƒ`ƒFƒbƒN
             If IsEmpty(wsData.Cells(i, "C").Value) Or IsEmpty(wsData.Cells(i, "D").Value) Then GoTo Skip_Row
-            
             timeValue = wsData.Cells(i, "E").Value
             If IsEmpty(timeValue) Or Not IsNumeric(timeValue) Then GoTo Skip_Row
-            
+
             workNo = wsData.Cells(i, "C").Value
-            category = wsData.Cells(i, "D").Value
-            
-            If Not categoryDic.Exists(category) Then GoTo Skip_Row
-            
+            category = CStr(wsData.Cells(i, "D").Value)
+
+            ' ¥¥i•ÏX“_j•s‘«‹æ•ª‚É‘Î‚·‚éYes/Noˆ— ¥¥
+            If Not categoryDic.Exists(category) Then
+                If Not addDecision.Exists(category) Then
+                    targetCol = EnsureCategoryColumn( _
+                                  category, wsMonthly, categoryDic, _
+                                  wsData, DATA_START_ROW, lastDataRow)
+                    addDecision.Add category, (targetCol > 0) ' True=’Ç‰Á‚µ‚½ / False=’Ç‰Á‚µ‚È‚¢
+                End If
+
+                ' ’Ç‰Á‚ğ‘I‚Î‚È‚©‚Á‚½‹æ•ª‚ÍƒXƒLƒbƒv
+                If addDecision(category) = False Then GoTo Skip_Row
+            End If
+            ' ££ ‚±‚±‚Ü‚Å•ÏX“_ ££
+
             targetCol = categoryDic(category)
-            
+
+            ' “]‹LiƒVƒŠƒAƒ‹’l‚ğ‚»‚Ì‚Ü‚Üj
             wsMonthly.Cells(targetRow, targetCol).Value = timeValue
-            
+
             transferCount = transferCount + 1
 Skip_Row:
         End If
     Next i
     
-    ' --- 8. äº‹å¾Œå‡¦ç† ---
+    ' --- 8. –Œãˆ— ---
     If transferCount = 0 Then
-        MsgBox "è»¢è¨˜å¯¾è±¡ã¨ãªã‚‹ãƒ‡ãƒ¼ã‚¿ãŒã‚ã‚Šã¾ã›ã‚“ã§ã—ãŸã€‚", vbInformation
+        MsgBox "“]‹L‘ÎÛ‚Æ‚È‚éƒf[ƒ^‚ª‚ ‚è‚Ü‚¹‚ñ‚Å‚µ‚½B", vbInformation
     Else
-        MsgBox transferCount & "ä»¶ã®ãƒ‡ãƒ¼ã‚¿ã‚’è»¢è¨˜ã—ã€ã‚¯ãƒªãƒƒãƒ—ãƒœãƒ¼ãƒ‰ã«ã‚³ãƒ”ãƒ¼ã—ã¾ã—ãŸã€‚", vbInformation, "å‡¦ç†å®Œäº†"
+        MsgBox transferCount & "Œ‚Ìƒf[ƒ^‚ğ“]‹L‚µAƒNƒŠƒbƒvƒ{[ƒh‚ÉƒRƒs[‚µ‚Ü‚µ‚½B", vbInformation, "ˆ—Š®—¹"
     End If
     
     GoTo CleanUp
 
 ErrorHandler:
-    MsgBox "ã‚¨ãƒ©ãƒ¼ãŒç™ºç”Ÿã—ã¾ã—ãŸã€‚" & vbCrLf & _
-           "ã‚¨ãƒ©ãƒ¼ç•ªå·: " & Err.Number & vbCrLf & _
-           "ã‚¨ãƒ©ãƒ¼å†…å®¹: " & Err.Description, vbCritical
+    MsgBox "ƒGƒ‰[‚ª”­¶‚µ‚Ü‚µ‚½B" & vbCrLf & _
+           "ƒGƒ‰[”Ô†: " & Err.Number & vbCrLf & _
+           "ƒGƒ‰[“à—e: " & Err.Description, vbCritical
            
 CleanUp:
-    ' --- ã‚·ãƒ¼ãƒˆã®å†ä¿è­· ---
+    ' --- ƒV[ƒg‚ÌÄ•ÛŒì ---
     If Not wsMonthly Is Nothing Then
         If wasMonthlyProtected Then wsMonthly.Protect
     End If
     
-    ' --- ã‚ªãƒ–ã‚¸ã‚§ã‚¯ãƒˆã®è§£æ”¾ ---
+    ' --- ƒIƒuƒWƒFƒNƒg‚Ì‰ğ•ú ---
     Set wsData = Nothing
     Set wsMonthly = Nothing
     Set categoryDic = Nothing
@@ -228,7 +247,7 @@ CleanUp:
 End Sub
 
 '================================================================================
-' â–  ãƒ‡ãƒ¼ã‚¿æ¶ˆå»ç”¨ãƒã‚¯ãƒ­
+' ¡ ƒf[ƒ^Á‹—pƒ}ƒNƒ
 '================================================================================
 Sub ClearInputData()
     Dim wsAcquisition As Worksheet, wsData As Worksheet
@@ -236,17 +255,17 @@ Sub ClearInputData()
     
     On Error GoTo ClearErrorHandler
     
-    ' ç¢ºèªãƒ¡ãƒƒã‚»ãƒ¼ã‚¸
-    If MsgBox("ã€Œ" & ACQUISITION_SHEET_NAME & "ã€ã‚·ãƒ¼ãƒˆã¨ã€Œ" & DATA_SHEET_NAME & "ã€ã‚·ãƒ¼ãƒˆã®å…¥åŠ›ãƒ‡ãƒ¼ã‚¿ã‚’ã‚¯ãƒªã‚¢ã—ã¾ã™ã€‚" & vbCrLf & "ã‚ˆã‚ã—ã„ã§ã™ã‹ï¼Ÿ", vbYesNo + vbQuestion, "ã‚¯ãƒªã‚¢ã®ç¢ºèª") = vbNo Then
-        MsgBox "å‡¦ç†ã‚’ä¸­æ–­ã—ã¾ã—ãŸã€‚", vbInformation
+    ' Šm”FƒƒbƒZ[ƒW
+    If MsgBox("u" & ACQUISITION_SHEET_NAME & "vƒV[ƒg‚Æu" & DATA_SHEET_NAME & "vƒV[ƒg‚Ì“ü—Íƒf[ƒ^‚ğƒNƒŠƒA‚µ‚Ü‚·B" & vbCrLf & "‚æ‚ë‚µ‚¢‚Å‚·‚©H", vbYesNo + vbQuestion, "ƒNƒŠƒA‚ÌŠm”F") = vbNo Then
+        MsgBox "ˆ—‚ğ’†’f‚µ‚Ü‚µ‚½B", vbInformation
         Exit Sub
     End If
     
-    ' ã‚·ãƒ¼ãƒˆã®å–å¾—
+    ' ƒV[ƒg‚Ìæ“¾
     Set wsAcquisition = ThisWorkbook.Sheets(ACQUISITION_SHEET_NAME)
     Set wsData = ThisWorkbook.Sheets(DATA_SHEET_NAME)
     
-    ' --- ã‚·ãƒ¼ãƒˆä¿è­·ã®è§£é™¤ ---
+    ' --- ƒV[ƒg•ÛŒì‚Ì‰ğœ ---
     wasAcquisitionProtected = wsAcquisition.ProtectContents
     If wasAcquisitionProtected Then
         If Not UnprotectSheet(wsAcquisition) Then GoTo ClearCleanup
@@ -257,23 +276,23 @@ Sub ClearInputData()
         If Not UnprotectSheet(wsData) Then GoTo ClearCleanup
     End If
     
-    ' ãƒ‡ãƒ¼ã‚¿ã®ã‚¯ãƒªã‚¢
+    ' ƒf[ƒ^‚ÌƒNƒŠƒA
     wsAcquisition.Range("C8:E22").ClearContents
-    ' â˜…â˜…â˜… ä¿®æ­£ç®‡æ‰€: C4ã‚»ãƒ«ã®ã‚¯ãƒªã‚¢å‡¦ç†ã‚’å‰Šé™¤ â˜…â˜…â˜…
+    ' ššš C³‰ÓŠ: C4ƒZƒ‹‚ÌƒNƒŠƒAˆ—‚ğíœ ššš
     wsData.Range("D4").ClearContents
     wsData.Range("F8:F17").ClearContents
     
-    MsgBox "ãƒ‡ãƒ¼ã‚¿ã®ã‚¯ãƒªã‚¢ãŒå®Œäº†ã—ã¾ã—ãŸã€‚", vbInformation
+    MsgBox "ƒf[ƒ^‚ÌƒNƒŠƒA‚ªŠ®—¹‚µ‚Ü‚µ‚½B", vbInformation
     
     GoTo ClearCleanup
 
 ClearErrorHandler:
-    MsgBox "ã‚¯ãƒªã‚¢å‡¦ç†ä¸­ã«ã‚¨ãƒ©ãƒ¼ãŒç™ºç”Ÿã—ã¾ã—ãŸã€‚" & vbCrLf & _
-           "ã‚·ãƒ¼ãƒˆåãŒæ­£ã—ã„ã‹ç¢ºèªã—ã¦ãã ã•ã„ã€‚" & vbCrLf & vbCrLf & _
-           "ã‚¨ãƒ©ãƒ¼å†…å®¹: " & Err.Description, vbCritical
+    MsgBox "ƒNƒŠƒAˆ—’†‚ÉƒGƒ‰[‚ª”­¶‚µ‚Ü‚µ‚½B" & vbCrLf & _
+           "ƒV[ƒg–¼‚ª³‚µ‚¢‚©Šm”F‚µ‚Ä‚­‚¾‚³‚¢B" & vbCrLf & vbCrLf & _
+           "ƒGƒ‰[“à—e: " & Err.Description, vbCritical
            
 ClearCleanup:
-    ' --- ã‚·ãƒ¼ãƒˆã®å†ä¿è­· ---
+    ' --- ƒV[ƒg‚ÌÄ•ÛŒì ---
     If Not wsAcquisition Is Nothing Then
         If wasAcquisitionProtected Then wsAcquisition.Protect
     End If
@@ -281,17 +300,17 @@ ClearCleanup:
         If wasDataProtected Then wsData.Protect
     End If
     
-    ' --- ã‚ªãƒ–ã‚¸ã‚§ã‚¯ãƒˆã®è§£æ”¾ ---
+    ' --- ƒIƒuƒWƒFƒNƒg‚Ì‰ğ•ú ---
     Set wsAcquisition = Nothing
     Set wsData = Nothing
 End Sub
 
 
 '================================================================================
-' â–  ãƒ˜ãƒ«ãƒ‘ãƒ¼é–¢æ•°ç¾¤
+' ¡ ƒwƒ‹ƒp[ŠÖ”ŒQ
 '================================================================================
 
-' --- æ©Ÿèƒ½: Excelã®æ™‚åˆ»å½¢å¼(å°æ•°)ã¨HHMMå½¢å¼(æ•´æ•°/æ–‡å­—åˆ—)ã®ä¸¡æ–¹ã‚’åˆ†ã«å¤‰æ›ã™ã‚‹
+' --- ‹@”\: Excel‚ÌŒ`®(¬”)‚ÆHHMMŒ`®(®”/•¶š—ñ)‚Ì—¼•û‚ğ•ª‚É•ÏŠ·‚·‚é
 Private Function ConvertToMinutes(ByVal timeValue As Variant) As Double
     ConvertToMinutes = 0
     If IsEmpty(timeValue) Or Not IsNumeric(timeValue) Then Exit Function
@@ -310,7 +329,7 @@ Private Function ConvertToMinutes(ByVal timeValue As Variant) As Double
     End If
 End Function
 
-' --- æ©Ÿèƒ½: åˆè¨ˆåˆ†ã‚’HHMMå½¢å¼ã®æ–‡å­—åˆ—ã«å¤‰æ›ã™ã‚‹ (ä¾‹: 90 -> "0130")
+' --- ‹@”\: ‡Œv•ª‚ğHHMMŒ`®‚Ì•¶š—ñ‚É•ÏŠ·‚·‚é (—á: 90 -> "0130")
 Private Function MinutesToHHMMString(ByVal totalMinutes As Double) As String
     Dim hours As Long
     Dim minutesPart As Long
@@ -327,7 +346,7 @@ Private Function MinutesToHHMMString(ByVal totalMinutes As Double) As String
     End If
 End Function
 
-' --- æ©Ÿèƒ½: æŒ‡å®šã•ã‚ŒãŸæ—¥ä»˜ã‚’B10:B40ã®ç¯„å›²ã‹ã‚‰æ¤œç´¢ã—ã€è¡Œç•ªå·ã‚’è¿”ã™
+' --- ‹@”\: w’è‚³‚ê‚½“ú•t‚ğB10:B40‚Ì”ÍˆÍ‚©‚çŒŸõ‚µAs”Ô†‚ğ•Ô‚·
 Private Function FindMatchingDateRow(ws As Worksheet, targetDate As Date) As Long
     Dim i As Long, cellDate As Date
     For i = MONTHLY_DATA_START_ROW To MONTHLY_DATA_END_ROW
@@ -342,7 +361,7 @@ Private Function FindMatchingDateRow(ws As Worksheet, targetDate As Date) As Lon
     FindMatchingDateRow = 0
 End Function
 
-' --- æ©Ÿèƒ½: Aåˆ—ã«åˆè¨ˆæ•°å¼ã‚’è¨­å®šã™ã‚‹
+' --- ‹@”\: A—ñ‚É‡Œv”®‚ğİ’è‚·‚é
 Private Sub UpdateSumFormula(ws As Worksheet, rowNum As Long)
     Dim lastCol As Long
     lastCol = ws.Cells(MONTHLY_HEADER_ROW, ws.Columns.Count).End(xlToLeft).Column
@@ -350,7 +369,7 @@ Private Sub UpdateSumFormula(ws As Worksheet, rowNum As Long)
     ws.Cells(rowNum, "A").FormulaR1C1 = "=SUM(RC[2]:RC[" & lastCol - 1 & "])"
 End Sub
 
-' --- æ©Ÿèƒ½: æ–‡å­—åˆ—ã‚’ã‚¯ãƒªãƒƒãƒ—ãƒœãƒ¼ãƒ‰ã«ã‚³ãƒ”ãƒ¼ã™ã‚‹ (64bit/32bitå¯¾å¿œ)
+' --- ‹@”\: •¶š—ñ‚ğƒNƒŠƒbƒvƒ{[ƒh‚ÉƒRƒs[‚·‚é (64bit/32bit‘Î‰)
 Private Sub CopyTextToClipboard(ByVal text As String)
     #If VBA7 Then
         Dim hGlobalMemory As LongPtr, lpGlobalMemory As LongPtr
@@ -378,38 +397,131 @@ Private Sub CopyTextToClipboard(ByVal text As String)
     End If
 End Sub
 
-' --- æ©Ÿèƒ½: ã‚·ãƒ¼ãƒˆã®ä¿è­·ã‚’è§£é™¤ã™ã‚‹ (ãƒ‘ã‚¹ãƒ¯ãƒ¼ãƒ‰ã‚’è¦æ±‚)
+' --- ‹@”\: ƒV[ƒg‚Ì•ÛŒì‚ğ‰ğœ‚·‚é (ƒpƒXƒ[ƒh‚ğ—v‹)
 Private Function UnprotectSheet(ws As Worksheet) As Boolean
-    UnprotectSheet = False ' åˆæœŸå€¤ã¯å¤±æ•—
+    UnprotectSheet = False ' ‰Šú’l‚Í¸”s
     On Error Resume Next
     
-    ' ãƒ‘ã‚¹ãƒ¯ãƒ¼ãƒ‰ãªã—ã§è©¦è¡Œ
+    ' ƒpƒXƒ[ƒh‚È‚µ‚Ås
     ws.Unprotect ""
     If Err.Number = 0 Then
         UnprotectSheet = True
         Exit Function
     End If
     
-    ' ãƒ‘ã‚¹ãƒ¯ãƒ¼ãƒ‰ãŒå¿…è¦ãªå ´åˆ
+    ' ƒpƒXƒ[ƒh‚ª•K—v‚Èê‡
     Err.Clear
     Dim password As String
-    password = InputBox("ã‚·ãƒ¼ãƒˆã€Œ" & ws.Name & "ã€ã¯ä¿è­·ã•ã‚Œã¦ã„ã¾ã™ã€‚" & vbCrLf & "ãƒ‘ã‚¹ãƒ¯ãƒ¼ãƒ‰ã‚’å…¥åŠ›ã—ã¦ãã ã•ã„ã€‚", "ä¿è­·ã®è§£é™¤")
+    password = InputBox("ƒV[ƒgu" & ws.Name & "v‚Í•ÛŒì‚³‚ê‚Ä‚¢‚Ü‚·B" & vbCrLf & "ƒpƒXƒ[ƒh‚ğ“ü—Í‚µ‚Ä‚­‚¾‚³‚¢B", "•ÛŒì‚Ì‰ğœ")
     
-    ' ã‚­ãƒ£ãƒ³ã‚»ãƒ«ã•ã‚ŒãŸå ´åˆ
+    ' ƒLƒƒƒ“ƒZƒ‹‚³‚ê‚½ê‡
     If password = "" Then
-        MsgBox "å‡¦ç†ã‚’ä¸­æ–­ã—ã¾ã—ãŸã€‚", vbInformation
+        MsgBox "ˆ—‚ğ’†’f‚µ‚Ü‚µ‚½B", vbInformation
         Exit Function
     End If
     
-    ' å…¥åŠ›ã•ã‚ŒãŸãƒ‘ã‚¹ãƒ¯ãƒ¼ãƒ‰ã§è©¦è¡Œ
+    ' “ü—Í‚³‚ê‚½ƒpƒXƒ[ƒh‚Ås
     ws.Unprotect password
     If Err.Number <> 0 Then
-        MsgBox "ãƒ‘ã‚¹ãƒ¯ãƒ¼ãƒ‰ãŒé•ã„ã¾ã™ã€‚å‡¦ç†ã‚’ä¸­æ–­ã—ã¾ã—ãŸã€‚", vbCritical
+        MsgBox "ƒpƒXƒ[ƒh‚ªˆá‚¢‚Ü‚·Bˆ—‚ğ’†’f‚µ‚Ü‚µ‚½B", vbCritical
         Exit Function
     End If
     
     On Error GoTo 0
     UnprotectSheet = True
 End Function
+'================================================================================
+' ¡ ƒwƒ‹ƒp[ŠÖ”iXVj
+'    w’è‹æ•ª‚Ì—ñ‚ª–³‚¯‚ê‚ÎAYes/No‚Åƒwƒbƒ_[––”ö‚É’Ç‰Á‚µ‚Ä—ñ”Ô†‚ğ•Ô‚·
+'    ’Ç‰Á‚ÉuŒŸƒf[ƒ^v8s–Ú‚ÖAŠY“–‹æ•ª‚Ìì”Ôiƒf[ƒ^“o˜^!C—ñj‚ğƒ†ƒj[ƒN“]‹L
+'    –ß‚è’l: ’Ç‰Á/Šù‘¶‚È‚ç—ñ”Ô†ANo‘I‘ğ‚Í0
+'================================================================================
+Private Function EnsureCategoryColumn(ByVal category As String, _
+                                      ByRef wsMonthly As Worksheet, _
+                                      ByRef categoryDic As Object, _
+                                      ByRef wsData As Worksheet, _
+                                      ByVal dataStartRow As Long, _
+                                      ByVal dataLastRow As Long) As Long
+    Dim resp As VbMsgBoxResult
+    Dim lastCol As Long, newCol As Long, prevCol As Long
 
+    ' Šù‚É‘¶İ‚·‚é‚È‚ç‚»‚Ì—ñ”Ô†‚ğ•Ô‚·
+    If categoryDic.Exists(category) Then
+        EnsureCategoryColumn = categoryDic(category)
+        Exit Function
+    End If
+
+    resp = MsgBox("‹æ•ªu" & category & "v‚Ì“]‹Læ‚ªŒ©‚Â‚©‚è‚Ü‚¹‚ñB" & vbCrLf & _
+                  "ƒwƒbƒ_[i" & MONTHLY_HEADER_ROW & "s–Új‚É—ñ‚ğ’Ç‰Á‚µ‚Ü‚·‚©H", _
+                  vbYesNo + vbQuestion, "“]‹Læi‹æ•ª—ñj‚Ì’Ç‰Á")
+
+    If resp = vbNo Then
+        EnsureCategoryColumn = 0
+        Exit Function
+    End If
+
+    ' ’Ç‰Áæ‚Ì—ñ”Ô†‚ğŒˆ’èiƒwƒbƒ_[ÅI—ñ‚Ì‰E—×j
+    lastCol = wsMonthly.Cells(MONTHLY_HEADER_ROW, wsMonthly.Columns.Count).End(xlToLeft).Column
+    newCol = lastCol + 1
+    prevCol = IIf(newCol > 1, newCol - 1, newCol)
+
+    ' ’l‚Ìİ’èiƒwƒbƒ_[j
+    wsMonthly.Cells(MONTHLY_HEADER_ROW, newCol).Value = category
+
+    ' ‘ÌÙiƒNƒŠƒbƒvƒ{[ƒh”ñg—p‚Å’¼‘O—ñ‚ÌŒ©‚½–Ú‚ğ“¥Pj
+    On Error Resume Next
+    wsMonthly.Columns(newCol).ColumnWidth = wsMonthly.Columns(prevCol).ColumnWidth
+    With wsMonthly.Cells(MONTHLY_HEADER_ROW, newCol)
+        .HorizontalAlignment = wsMonthly.Cells(MONTHLY_HEADER_ROW, prevCol).HorizontalAlignment
+        .VerticalAlignment = wsMonthly.Cells(MONTHLY_HEADER_ROW, prevCol).VerticalAlignment
+        .Interior.Color = wsMonthly.Cells(MONTHLY_HEADER_ROW, prevCol).Interior.Color
+        .Font.Bold = wsMonthly.Cells(MONTHLY_HEADER_ROW, prevCol).Font.Bold
+        .WrapText = wsMonthly.Cells(MONTHLY_HEADER_ROW, prevCol).WrapText
+    End With
+    ' š 8s–Úiì”Ôsj‚Ì‘ÌÙ‚à“¥P
+    With wsMonthly.Cells(8, newCol)
+        .HorizontalAlignment = wsMonthly.Cells(8, prevCol).HorizontalAlignment
+        .VerticalAlignment = wsMonthly.Cells(8, prevCol).VerticalAlignment
+        .Interior.Color = wsMonthly.Cells(8, prevCol).Interior.Color
+        .Font.Bold = wsMonthly.Cells(8, prevCol).Font.Bold
+        .WrapText = wsMonthly.Cells(8, prevCol).WrapText
+    End With
+    On Error GoTo 0
+
+    ' --- uƒf[ƒ^“o˜^vC—ñiì”Ôj‚ğW–ñ‚µ‚Ä8s–Ú‚É“]‹L ---
+    Dim seen As Object: Set seen = CreateObject("Scripting.Dictionary")
+    Dim i As Long, workNo As String, cat As String
+    Dim listArr() As String, cnt As Long
+
+    ' 1ü‚ÅÅ‘åŒ”‚ª•ª‚©‚ç‚È‚¢‚Ì‚Å‰Â•Ï‚Å’~Ï
+    ReDim listArr(0 To 0): cnt = -1
+
+    For i = dataStartRow To dataLastRow
+        cat = CStr(wsData.Cells(i, "D").Value)
+        If Len(cat) > 0 Then
+            If StrComp(cat, category, vbTextCompare) = 0 Then
+                workNo = Trim$(CStr(wsData.Cells(i, "C").Value))
+                If Len(workNo) > 0 Then
+                    If Not seen.Exists(workNo) Then
+                        seen.Add workNo, True
+                        cnt = cnt + 1
+                        If cnt > UBound(listArr) Then ReDim Preserve listArr(0 To cnt)
+                        listArr(cnt) = workNo
+                    End If
+                End If
+            End If
+        End If
+    Next i
+
+    If cnt >= 0 Then
+        wsMonthly.Cells(8, newCol).Value = Join(listArr, " / ")
+    Else
+        ' ‚»‚Ì‹æ•ª‚Ìs‚ÉC—ñ‚ª‹ó‚µ‚©–³‚¢ê‡‚Í‹ó”’‚Ì‚Ü‚Ü
+        wsMonthly.Cells(8, newCol).ClearContents
+    End If
+
+    ' «‘‚Ö“o˜^‚µ‚Ä—ñ”Ô†‚ğ•Ô‚·
+    categoryDic.Add category, newCol
+    EnsureCategoryColumn = newCol
+End Function
 
