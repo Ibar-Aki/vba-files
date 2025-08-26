@@ -1,7 +1,7 @@
 Option Explicit
 '===============================================================================
 ' モジュール名: TransferDataModule.bas
-' 機能: 「データ登録」→「月次データ」へ転記（区分＋作番で列特定）
+' 機能: 「データ登録」→「月次データ」へ転記（作業ｺｰﾄﾞ＋作番で列特定）
 ' 対象: Excel 2016+ / Windows 11 / 日本語環境
 '===============================================================================
 
@@ -69,7 +69,7 @@ Private Const DEFAULT_PREVIEW_ROWS As Long = 31
 Private Const KEY_SEPARATOR As String = "|"
 Private Const MESSAGE_SEPARATOR As String = vbLf
 Private Const TIME_FORMAT As String = "[hh]mm"
-Private Const DATE_FORMAT As String = "yyyy/mm/dd"
+Private Const DATE_FORMAT As String = "yyyy/mm/dd(aaa)"
 Private Const PREVIEW_TAB As String = vbTab
 
 ' 列追加ポリシー
@@ -243,8 +243,8 @@ Private Sub ExecuteDataTransfer( _
     ByRef result As ProcessResult)
 
     Dim items As collection              ' 各行: Array(WorkNo, Category, Minutes, RowIndex)
-    Dim aggregated As Object             ' Scripting.Dictionary (key="区分|作番", val=合計分)
-    Dim mapDict As Object                ' 列マッピング辞書 (key="区分|作番", val=列番号)
+    Dim aggregated As Object             ' Scripting.Dictionary (key="作業ｺｰﾄﾞ|作番", val=合計分)
+    Dim mapDict As Object                ' 列マッピング辞書 (key="作業ｺｰﾄﾞ|作番", val=列番号)
     Dim lastCol As Long
 
     ' データ収集
@@ -313,7 +313,7 @@ Private Function CollectTimeDataFromSheet(ByRef wsData As Worksheet) As collecti
 End Function
 
 '===============================================================================
-' 集計（key="区分|作番"）
+' 集計（key="作業ｺｰﾄﾞ|作番"）
 '===============================================================================
 Private Function AggregateTimeData(ByRef items As collection) As Object
     Dim dic As Object: Set dic = CreateObject("Scripting.Dictionary")
@@ -360,7 +360,7 @@ Private Function ShowPreviewAndConfirm(ByVal targetDate As Date, ByRef aggregate
     msg = "以下の内容で転記します。よろしいですか？" & vbCrLf & vbCrLf & _
           "対象日付: " & Format$(targetDate, DATE_FORMAT) & vbCrLf & _
           String(50, "-") & vbCrLf & _
-          "作番" & PREVIEW_TAB & " | 区分" & PREVIEW_TAB & " | 時間" & vbCrLf & _
+          "作番" & PREVIEW_TAB & " | 作業ｺｰﾄﾞ" & " | 時間" & vbCrLf & _
           String(50, "-") & vbCrLf
 
     n = 0
@@ -400,7 +400,7 @@ Private Sub WriteAggregatedDataToSheet( _
     result.NewColumnsAdded = 0
 
     For Each key In aggregatedData.Keys
-        parts = Split(CStr(key), KEY_SEPARATOR) ' 0:区分 1:作番
+        parts = Split(CStr(key), KEY_SEPARATOR) ' 0:作業ｺｰﾄﾞ 1:作番
         If UBound(parts) >= 1 Then
             targetCol = GetOrCreateColumn(parts(0), parts(1), config, wsMonthly, mapDict, lastCol, result)
             If targetCol > 0 Then
@@ -497,7 +497,7 @@ End Sub
 
 Private Function ConfirmColumnCreation(ByVal category As String, ByVal workNo As String) As Boolean
     ConfirmColumnCreation = (MsgBox( _
-        "区分『" & category & "』＋作番『" & workNo & "』の列がありません。" & vbCrLf & _
+        "作業ｺｰﾄﾞ『" & category & "』＋作番『" & workNo & "』の列がありません。" & vbCrLf & _
         "月次データシートに新しい列を追加しますか？", _
         vbYesNo + vbQuestion, "列の追加確認") = vbYes)
 End Function
@@ -508,28 +508,34 @@ Private Sub WriteTimeDataToCell( _
     ByVal minutes As Double, ByVal accumulateMode As Boolean, _
     ByRef result As ProcessResult)
 
-    Dim existingValue As Double, newValue As Double
-    existingValue = NzD(wsMonthly.Cells(targetRow, targetCol).value, 0#)
+    Dim existingValue As Double, newValue As Double, isDup As Boolean
+    existingValue = NzD(wsMonthly.Cells(targetRow, targetCol).Value, 0#)
     newValue = MinutesToSerial(minutes)
+    isDup = (existingValue <> 0#)
 
-    If existingValue <> 0# Then
+    If isDup Then
         result.DuplicateCount = result.DuplicateCount + 1
         HighlightDuplicateCell wsMonthly.Cells(targetRow, targetCol)
         LogDuplicateMessage wsMonthly, targetRow, _
-            CStr(wsMonthly.Cells(MONTHLY_HEADER_ROW, targetCol).value), _
-            CStr(wsMonthly.Cells(MONTHLY_WORKNO_ROW, targetCol).value), _
+            CStr(wsMonthly.Cells(MONTHLY_HEADER_ROW, targetCol).Value), _
+            CStr(wsMonthly.Cells(MONTHLY_WORKNO_ROW, targetCol).Value), _
             existingValue, newValue, accumulateMode
     End If
 
     With wsMonthly.Cells(targetRow, targetCol)
-        If accumulateMode Then
-            .value = existingValue + newValue
+        If isDup Then
+            .Value = newValue
         Else
-            .value = newValue
+            If accumulateMode Then
+                .Value = existingValue + newValue   ' existingValue=0 のため実質 newValue と同じ
+            Else
+                .Value = newValue
+            End If
         End If
         .NumberFormatLocal = TIME_FORMAT
     End With
 End Sub
+
 
 Private Sub HighlightDuplicateCell(ByRef cell As Range)
     With cell.Interior
@@ -545,8 +551,7 @@ Private Sub LogDuplicateMessage( _
     ByVal accumulateMode As Boolean)
 
     Dim message As String
-    message = "既存値検出: [" & workNo & "|" & category & "] 旧=" & SerialToHHMMString(oldValue) & _
-              " 新=" & SerialToHHMMString(newValue) & IIf(accumulateMode, " (加算)", " (上書)")
+    message = "既存値検出: [" & workNo & "|" & category & "] 旧=" & SerialToHHMMString(oldValue) 
     AppendMessageToCell wsMonthly, rowNum, message
 End Sub
 
@@ -558,7 +563,8 @@ Private Sub CopyDataToClipboard(ByRef items As collection, ByRef wsData As Works
     For i = 1 To items.Count
         v = items(i)
         ' WorkNo, Category, 表示文字列としての時間
-        sb = sb & CStr(v(1)) & vbTab & CStr(v(2)) & vbTab & _
+        ' 重要：(時間と作業ｺｰﾄﾞの間に1行タブを開ける)
+        sb = sb & CStr(v(1)) & vbTab & CStr(v(2)) & vbTab & vbTab & _
                  CStr(wsData.Cells(CLng(v(4)), COL_TIME).text) & vbCrLf
     Next
     If Len(sb) > 0 Then CopyTextToClipboardSafe sb
@@ -841,7 +847,7 @@ Private Function FriendlyErrorMessage9(ByVal errDesc As String) As String
         "エラー #9（インデックスが有効範囲にありません）" & vbCrLf & _
         "考えられる原因と対処:" & vbCrLf & _
         "・シート名の確認：『" & DATA_SHEET_NAME & "』『" & MONTHLY_SHEET_NAME & "』が存在するか" & vbCrLf & _
-        "・データ形式の確認：区分と作番が正しく入力されているか" & vbCrLf & _
+        "・データ形式の確認：作業ｺｰﾄﾞと作番が正しく入力されているか" & vbCrLf & _
         "・列構造の確認：必要な列が存在し、正しい位置にあるか" & vbCrLf & _
         vbCrLf & "詳細: " & errDesc
 End Function
