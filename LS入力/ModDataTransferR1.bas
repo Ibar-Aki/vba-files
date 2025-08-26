@@ -1,3 +1,4 @@
+Attribute VB_Name = "ModDataTransfer"
 Option Explicit
 '===============================================================================
 ' モジュール名: TransferDataModule.bas
@@ -136,6 +137,7 @@ Public Sub TransferDataToMonthlySheet()
 
     SaveAndSetApplicationState prevState
     On Error GoTo ErrorHandler
+    ClearErrorCellOnMonthlySheet
 
     ' 初期化と検証（シート返却）
     If Not InitializeTransferConfig(config, protectionInfo, wsData, wsMonthly) Then GoTo CleanUp
@@ -145,14 +147,16 @@ Public Sub TransferDataToMonthlySheet()
 
     ' 結果表示
     ShowTransferResults result
-
+    
 CleanUp:
     RestoreSheetProtection wsMonthly, protectionInfo
     RestoreApplicationState prevState
     Exit Sub
 
 ErrorHandler:
-    MsgBox GetErrorDetails(Err.Number, Err.Description), vbCritical, "転記処理エラー"
+    Dim emsg As String
+    emsg = GetErrorDetails(Err.Number, Err.description)
+    ReportErrorToMonthlySheet emsg
     Resume CleanUp
 End Sub
 
@@ -210,7 +214,7 @@ End Function
 
 Private Function ValidateSheetStructure(ByRef wsData As Worksheet, ByRef wsMonthly As Worksheet) As Boolean
     ' データシートの構造チェック
-    If wsData.Cells(wsData.Rows.Count, COL_WORKNO).End(xlUp).Row < DATA_START_ROW Then
+    If wsData.Cells(wsData.rows.Count, COL_WORKNO).End(xlUp).Row < DATA_START_ROW Then
         ValidateSheetStructure = False: Exit Function
     End If
     ' 月次シートの構造チェック（ヘッダ行に最低C列まである）
@@ -222,11 +226,11 @@ End Function
 
 Private Function DetermineTargetDate(ByRef wsData As Worksheet, ByRef targetDate As Date) As Boolean
     DetermineTargetDate = False
-    If IsDate(wsData.Range(DATE_CELL_PRIORITY).Value) Then
-        targetDate = CDate(wsData.Range(DATE_CELL_PRIORITY).Value)
+    If IsDate(wsData.Range(DATE_CELL_PRIORITY).value) Then
+        targetDate = CDate(wsData.Range(DATE_CELL_PRIORITY).value)
         DetermineTargetDate = True
-    ElseIf IsDate(wsData.Range(DATE_CELL_NORMAL).Value) Then
-        targetDate = CDate(wsData.Range(DATE_CELL_NORMAL).Value)
+    ElseIf IsDate(wsData.Range(DATE_CELL_NORMAL).value) Then
+        targetDate = CDate(wsData.Range(DATE_CELL_NORMAL).value)
         DetermineTargetDate = True
     Else
         RaiseCustomError ERR_INVALID_DATE, "セル " & DATE_CELL_NORMAL & " または " & DATE_CELL_PRIORITY
@@ -242,7 +246,7 @@ Private Sub ExecuteDataTransfer( _
     ByRef wsMonthly As Worksheet, _
     ByRef result As ProcessResult)
 
-    Dim items As Collection              ' 各行: Array(WorkNo, Category, Minutes, RowIndex)
+    Dim items As collection              ' 各行: Array(WorkNo, Category, Minutes, RowIndex)
     Dim aggregated As Object             ' Scripting.Dictionary (key="作業ｺｰﾄﾞ|作番", val=合計分)
     Dim mapDict As Object                ' 列マッピング辞書 (key="作業ｺｰﾄﾞ|作番", val=列番号)
     Dim lastCol As Long
@@ -289,18 +293,18 @@ End Sub
 '===============================================================================
 ' データ収集（Collection of Variant()）
 '===============================================================================
-Private Function CollectTimeDataFromSheet(ByRef wsData As Worksheet) As Collection
-    Dim col As New Collection
+Private Function CollectTimeDataFromSheet(ByRef wsData As Worksheet) As collection
+    Dim col As New collection
     Dim lastRow As Long, r As Long
     Dim workNo As String, category As String
     Dim minutes As Double
     Dim arr(1 To 4) As Variant  ' 1:WorkNo, 2:Category, 3:Minutes, 4:RowIndex
 
-    lastRow = wsData.Cells(wsData.Rows.Count, COL_WORKNO).End(xlUp).Row
+    lastRow = wsData.Cells(wsData.rows.Count, COL_WORKNO).End(xlUp).Row
     For r = DATA_START_ROW To lastRow
-        workNo = Trim$(CStr(wsData.Cells(r, COL_WORKNO).Value))
-        category = Trim$(CStr(wsData.Cells(r, COL_CATEGORY).Value))
-        minutes = ConvertToMinutesEx(wsData.Cells(r, COL_TIME).Value)
+        workNo = Trim$(CStr(wsData.Cells(r, COL_WORKNO).value))
+        category = Trim$(CStr(wsData.Cells(r, COL_CATEGORY).value))
+        minutes = ConvertToMinutesEx(wsData.Cells(r, COL_TIME).value)
         If (workNo <> "") And (category <> "") And (minutes > 0) Then
             arr(1) = workNo
             arr(2) = category
@@ -315,7 +319,7 @@ End Function
 '===============================================================================
 ' 集計（key="作業ｺｰﾄﾞ|作番"）
 '===============================================================================
-Private Function AggregateTimeData(ByRef items As Collection) As Object
+Private Function AggregateTimeData(ByRef items As collection) As Object
     Dim dic As Object: Set dic = CreateObject("Scripting.Dictionary")
     Dim i As Long, key As String, v As Variant
     For i = 1 To items.Count
@@ -341,8 +345,8 @@ Private Sub BuildColumnMapping(ByRef wsMonthly As Worksheet, ByRef lastColOut As
     lastColOut = lastCol
 
     For c = MONTHLY_MIN_COL To lastCol
-        categoryName = Trim$(CStr(wsMonthly.Cells(MONTHLY_HEADER_ROW, c).Value))
-        workNoName = Trim$(CStr(wsMonthly.Cells(MONTHLY_WORKNO_ROW, c).Value))
+        categoryName = Trim$(CStr(wsMonthly.Cells(MONTHLY_HEADER_ROW, c).value))
+        workNoName = Trim$(CStr(wsMonthly.Cells(MONTHLY_WORKNO_ROW, c).value))
         If categoryName <> "" Then
             key = categoryName & KEY_SEPARATOR & workNoName
             If Not mapDict.Exists(key) Then mapDict.Add key, c
@@ -454,8 +458,8 @@ Private Function CreateNewColumn( _
     Dim newCol As Long
     newCol = lastCol + 1
 
-    wsMonthly.Cells(MONTHLY_HEADER_ROW, newCol).Value = category
-    wsMonthly.Cells(MONTHLY_WORKNO_ROW, newCol).Value = workNo
+    wsMonthly.Cells(MONTHLY_HEADER_ROW, newCol).value = category
+    wsMonthly.Cells(MONTHLY_WORKNO_ROW, newCol).value = workNo
 
     ApplyColumnFormatting wsMonthly, newCol, IIf(lastCol >= MONTHLY_MIN_COL, lastCol, MONTHLY_MIN_COL)
     SetDataColumnFormat wsMonthly, newCol
@@ -488,7 +492,7 @@ End Sub
 
 Private Sub SetDataColumnFormat(ByRef wsMonthly As Worksheet, ByVal col As Long)
     Dim lastRow As Long
-    lastRow = wsMonthly.Cells(wsMonthly.Rows.Count, COL_DATE).End(xlUp).Row
+    lastRow = wsMonthly.Cells(wsMonthly.rows.Count, COL_DATE).End(xlUp).Row
     If lastRow < MONTHLY_DATA_START_ROW Then lastRow = MONTHLY_DATA_START_ROW + DEFAULT_PREVIEW_ROWS
     With wsMonthly.Range(wsMonthly.Cells(MONTHLY_DATA_START_ROW, col), wsMonthly.Cells(lastRow, col))
         .NumberFormatLocal = TIME_FORMAT
@@ -509,7 +513,7 @@ Private Sub WriteTimeDataToCell( _
     ByRef result As ProcessResult)
 
     Dim existingValue As Double, newValue As Double, isDup As Boolean
-    existingValue = NzD(wsMonthly.Cells(targetRow, targetCol).Value, 0#)
+    existingValue = NzD(wsMonthly.Cells(targetRow, targetCol).value, 0#)
     newValue = MinutesToSerial(minutes)
     isDup = (existingValue <> 0#)
 
@@ -517,15 +521,15 @@ Private Sub WriteTimeDataToCell( _
         result.DuplicateCount = result.DuplicateCount + 1
         HighlightDuplicateCell wsMonthly.Cells(targetRow, targetCol)
         ' 旧値のみをメッセージ列へ書く
-        LogDuplicateMessage wsMonthly, targetRow, 　_
-            CStr(wsMonthly.Cells(MONTHLY_HEADER_ROW, targetCol).Value), _
-            CStr(wsMonthly.Cells(MONTHLY_WORKNO_ROW, targetCol).Value), _
+        LogDuplicateMessage wsMonthly, targetRow, _
+            CStr(wsMonthly.Cells(MONTHLY_HEADER_ROW, targetCol).value), _
+            CStr(wsMonthly.Cells(MONTHLY_WORKNO_ROW, targetCol).value), _
             existingValue
     End If
 
     ' 上書き固定
     With wsMonthly.Cells(targetRow, targetCol)
-        .Value = newValue
+        .value = newValue
         .NumberFormatLocal = TIME_FORMAT
     End With
 End Sub
@@ -543,21 +547,21 @@ Private Sub LogDuplicateMessage( _
     ByVal oldValue As Double)
     ' 重複時は「もともと入っていた時間」だけを記録（例: "1:30"）
      Dim message As String
-    message = "既存値検出: [" & workNo & "|" & category & "] 旧=" & SerialToHHMMString(oldValue) 
+    message = "既存値検出: [" & workNo & "|" & category & "] 旧=" & SerialToHHMMString(oldValue)
     AppendMessageToCell wsMonthly, rowNum, message
 End Sub
 
 '===============================================================================
 ' クリップボード
 '===============================================================================
-Private Sub CopyDataToClipboard(ByRef items As Collection, ByRef wsData As Worksheet)
+Private Sub CopyDataToClipboard(ByRef items As collection, ByRef wsData As Worksheet)
     Dim sb As String, i As Long, v As Variant
     For i = 1 To items.Count
         v = items(i)
         ' WorkNo, Category, 表示文字列としての時間
         ' 重要：(時間と作業ｺｰﾄﾞの間に1行タブを開ける)
         sb = sb & CStr(v(1)) & vbTab & CStr(v(2)) & vbTab & vbTab & _
-                 CStr(wsData.Cells(CLng(v(4)), COL_TIME).Text) & vbCrLf
+                 CStr(wsData.Cells(CLng(v(4)), COL_TIME).text) & vbCrLf
     Next
     If Len(sb) > 0 Then CopyTextToClipboardSafe sb
 End Sub
@@ -695,11 +699,11 @@ End Function
 Private Function FindMatchingDateRow(ByRef wsMonthly As Worksheet, ByVal targetDate As Date) As Long
     Dim lastRow As Long, r As Long, d As Date
     FindMatchingDateRow = 0
-    lastRow = wsMonthly.Cells(wsMonthly.Rows.Count, COL_DATE).End(xlUp).Row
+    lastRow = wsMonthly.Cells(wsMonthly.rows.Count, COL_DATE).End(xlUp).Row
     If lastRow < MONTHLY_DATA_START_ROW Then Exit Function
     For r = MONTHLY_DATA_START_ROW To lastRow
-        If IsDate(wsMonthly.Cells(r, COL_DATE).Value) Then
-            d = CDate(wsMonthly.Cells(r, COL_DATE).Value)
+        If IsDate(wsMonthly.Cells(r, COL_DATE).value) Then
+            d = CDate(wsMonthly.Cells(r, COL_DATE).value)
             If Int(d) = Int(targetDate) Then
                 FindMatchingDateRow = r: Exit Function
             End If
@@ -709,8 +713,8 @@ End Function
 
 Private Sub EnsureMessageColumnHeader(ByRef wsMonthly As Worksheet)
     With wsMonthly.Cells(MONTHLY_HEADER_ROW, COL_MESSAGE)
-        If Trim$(CStr(.Value)) = "" Then
-            .Value = "メッセージ"
+        If Trim$(CStr(.value)) = "" Then
+            .value = "メッセージ"
             .Font.Bold = True
         End If
     End With
@@ -718,10 +722,10 @@ End Sub
 
 Private Sub AppendMessageToCell(ByRef wsMonthly As Worksheet, ByVal rowNum As Long, ByVal message As String)
     With wsMonthly.Cells(rowNum, COL_MESSAGE)
-        If Len(.Value) = 0 Then
-            .Value = message
+        If Len(.value) = 0 Then
+            .value = message
         Else
-            .Value = CStr(.Value) & MESSAGE_SEPARATOR & message
+            .value = CStr(.value) & MESSAGE_SEPARATOR & message
         End If
     End With
 End Sub
@@ -737,6 +741,30 @@ Private Function NzD(ByVal value As Variant, Optional ByVal defaultValue As Doub
     End If
     On Error GoTo 0
 End Function
+
+Private Sub ClearErrorCellOnMonthlySheet()
+    On Error Resume Next
+    Dim ws As Worksheet
+    Set ws = ThisWorkbook.Sheets(MONTHLY_SHEET_NAME)
+    If Not ws Is Nothing Then
+        ws.Range("I1").ClearContents
+        ws.Range("I1").WrapText = True
+    End If
+    On Error GoTo 0
+End Sub
+
+Private Sub ReportErrorToMonthlySheet(ByVal message As String)
+    On Error Resume Next
+    Dim ws As Worksheet
+    Set ws = ThisWorkbook.Sheets(MONTHLY_SHEET_NAME)
+    If Not ws Is Nothing Then
+        With ws.Range("I1")
+            .value = message
+            .WrapText = True
+        End With
+    End If
+    On Error GoTo 0
+End Sub
 
 '===============================================================================
 ' アプリケーション状態管理
@@ -870,3 +898,5 @@ Private Sub ShowTransferResults(ByRef result As ProcessResult)
         MsgBox message, vbExclamation, "処理中止"
     End If
 End Sub
+
+
