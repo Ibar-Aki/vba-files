@@ -1,897 +1,1344 @@
 Option Explicit
 '===============================================================================
-' ãƒ¢ã‚¸ãƒ¥ãƒ¼ãƒ«å: TransferDataModule.bas
-' æ©Ÿèƒ½: ã€Œãƒ‡ãƒ¼ã‚¿ç™»éŒ²ã€â†’ã€Œæœˆæ¬¡ãƒ‡ãƒ¼ã‚¿ã€ã¸è»¢è¨˜ï¼ˆåŒºåˆ†ï¼‹ä½œç•ªã§åˆ—ç‰¹å®šï¼‰
-' å¯¾è±¡: Excel 2016+ / Windows 11/ æ—¥æœ¬èªç’°å¢ƒ
-'===============================================================================
+' ƒ‚ƒWƒ…[ƒ‹–¼: TransferDataModule.bas
+' 
+' yŠT—vzuƒf[ƒ^“o˜^vƒV[ƒg‚©‚çuŒŸƒf[ƒ^vƒV[ƒg‚Ö‚ÌŠÔƒf[ƒ^“]‹Lˆ—
+' yì¬zuJJ-07v2025/08
+' y‘ÎÛŠÂ‹«zExcel 2016+ / Windows
+' yå—v‹@”\z
+' E“¯ˆêƒL[‚Ìƒf[ƒ^‚Í©“®WŒv‚µ‚Ä“]‹L
+' EŠù‘¶’l‚ª‚ ‚éê‡‚Íã‘‚«i‰ÁZ‚Í‚µ‚È‚¢j
+' Ed•¡‚ÍŒ³‚Ì’l‚ğƒƒbƒZ[ƒW—ñ‚É‹L˜^‚µAƒZƒ‹‚ğ‰©F‚ÅƒnƒCƒ‰ƒCƒg
+' Eì‹ÆƒR[ƒh{ì”Ô‚Ì‘g‚İ‡‚í‚¹‚Å“]‹Læ—ñ‚ğ“Á’è
+' E‘¶İ‚µ‚È‚¢ì‹ÆƒR[ƒh{ì”Ô‚Ì—ñ‚ÍŠm”FŒã‚É©“®’Ç‰Á‰Â”\
+' yXV—š—ğz
+' Ev1.0: ‰”Åì¬
+' ==============================================================================
 
 '=========================
-' WinAPIï¼ˆ64/32ä¸¡å¯¾å¿œï¼‰
+' WinAPIéŒ¾•”i64/32ƒrƒbƒg—¼‘Î‰j
+' ƒNƒŠƒbƒvƒ{[ƒh‘€ì—p‚ÌWindows APIŠÖ”
 '=========================
 #If VBA7 Then
-Â  Â  Private Declare PtrSafe Function OpenClipboard Lib "user32" (ByVal hwnd As LongPtr) As Long
-Â  Â  Private Declare PtrSafe Function EmptyClipboard Lib "user32" () As Long
-Â  Â  Private Declare PtrSafe Function CloseClipboard Lib "user32" () As Long
-Â  Â  Private Declare PtrSafe Function SetClipboardData Lib "user32" (ByVal wFormat As Long, ByVal hMem As LongPtr) As LongPtr
-Â  Â  Private Declare PtrSafe Function GlobalAlloc Lib "kernel32" (ByVal wFlags As Long, ByVal dwBytes As LongPtr) As LongPtr
-Â  Â  Private Declare PtrSafe Function GlobalLock Lib "kernel32" (ByVal hMem As LongPtr) As LongPtr
-Â  Â  Private Declare PtrSafe Function GlobalUnlock Lib "kernel32" (ByVal hMem As LongPtr) As Long
-Â  Â  Private Declare PtrSafe Function GlobalFree Lib "kernel32" (ByVal hMem As LongPtr) As LongPtr
-Â  Â  Private Declare PtrSafe Function lstrcpyW Lib "kernel32" (ByVal lpString1 As LongPtr, ByVal lpString2 As LongPtr) As LongPtr
+    ' === 64ƒrƒbƒg”ÅOffice—pAPIéŒ¾ ===
+    Private Declare PtrSafe Function OpenClipboard Lib "user32" (ByVal hwnd As LongPtr) As Long
+    Private Declare PtrSafe Function EmptyClipboard Lib "user32" () As Long
+    Private Declare PtrSafe Function CloseClipboard Lib "user32" () As Long
+    Private Declare PtrSafe Function SetClipboardData Lib "user32" (ByVal wFormat As Long, ByVal hMem As LongPtr) As LongPtr
+    Private Declare PtrSafe Function GlobalAlloc Lib "kernel32" (ByVal wFlags As Long, ByVal dwBytes As LongPtr) As LongPtr
+    Private Declare PtrSafe Function GlobalLock Lib "kernel32" (ByVal hMem As LongPtr) As LongPtr
+    Private Declare PtrSafe Function GlobalUnlock Lib "kernel32" (ByVal hMem As LongPtr) As Long
+    Private Declare PtrSafe Function GlobalFree Lib "kernel32" (ByVal hMem As LongPtr) As LongPtr
+    Private Declare PtrSafe Function lstrcpyW Lib "kernel32" (ByVal lpString1 As LongPtr, ByVal lpString2 As LongPtr) As LongPtr
 #Else
-Â  Â  Private Declare Function OpenClipboard Lib "user32" (ByVal hwnd As Long) As Long
-Â  Â  Private Declare Function EmptyClipboard Lib "user32" () As Long
-Â  Â  Private Declare Function CloseClipboard Lib "user32" () As Long
-Â  Â  Private Declare Function SetClipboardData Lib "user32" (ByVal wFormat As Long, ByVal hMem As Long) As Long
-Â  Â  Private Declare Function GlobalAlloc Lib "kernel32" (ByVal wFlags As Long, ByVal dwBytes As Long) As Long
-Â  Â  Private Declare Function GlobalLock Lib "kernel32" (ByVal hMem As Long) As Long
-Â  Â  Private Declare Function GlobalUnlock Lib "kernel32" (ByVal hMem As Long) As Long
-Â  Â  Private Declare Function GlobalFree Lib "kernel32" (ByVal hMem As Long) As Long
-Â  Â  Private Declare Function lstrcpyW Lib "kernel32" (ByVal lpString1 As Long, ByVal lpString2 As Long) As Long
+    ' === 32ƒrƒbƒg”ÅOffice—pAPIéŒ¾ ===
+    Private Declare Function OpenClipboard Lib "user32" (ByVal hwnd As Long) As Long
+    Private Declare Function EmptyClipboard Lib "user32" () As Long
+    Private Declare Function CloseClipboard Lib "user32" () As Long
+    Private Declare Function SetClipboardData Lib "user32" (ByVal wFormat As Long, ByVal hMem As Long) As Long
+    Private Declare Function GlobalAlloc Lib "kernel32" (ByVal wFlags As Long, ByVal dwBytes As Long) As Long
+    Private Declare Function GlobalLock Lib "kernel32" (ByVal hMem As Long) As Long
+    Private Declare Function GlobalUnlock Lib "kernel32" (ByVal hMem As Long) As Long
+    Private Declare Function GlobalFree Lib "kernel32" (ByVal hMem As Long) As Long
+    Private Declare Function lstrcpyW Lib "kernel32" (ByVal lpString1 As Long, ByVal lpString2 As Long) As Long
 #End If
 
-Private Const GMEM_MOVEABLE As Long = &H2
-Private Const CF_UNICODETEXT As Long = 13
+' === WinAPIŠÖ˜A’è” ===
+Private Const GMEM_MOVEABLE As Long = &H2           ' ƒƒ‚ƒŠƒuƒƒbƒNˆÚ“®‰Â”\ƒtƒ‰ƒO
+Private Const CF_UNICODETEXT As Long = 13           ' Unicode•¶š—ñƒNƒŠƒbƒvƒ{[ƒhŒ`®
 
 '=========================
-' ã‚·ã‚¹ãƒ†ãƒ è¨­å®šå®šæ•°
+' ƒVƒXƒeƒ€İ’è’è”
+' ¦‚±‚ê‚ç‚Ì’è”‚ğ•ÏX‚·‚é‚±‚Æ‚ÅAƒV[ƒg\‘¢‚É‡‚í‚¹‚ÄƒJƒXƒ^ƒ}ƒCƒY‰Â”\
 '=========================
-' ã‚·ãƒ¼ãƒˆå
-Private Const DATA_SHEET_NAMEÂ  Â  Â  Â  As String = "ãƒ‡ãƒ¼ã‚¿ç™»éŒ²"
-Private Const MONTHLY_SHEET_NAMEÂ  Â  Â As String = "æœˆæ¬¡ãƒ‡ãƒ¼ã‚¿"
 
-' ã‚»ãƒ«ä½ç½®
-Private Const DATE_CELL_PRIORITY As String = "D4"
-Private Const DATE_CELL_NORMALÂ  Â As String = "D3"
+' === ƒV[ƒg–¼’è” ===
+Private Const DATA_SHEET_NAME        As String = "ƒf[ƒ^“o˜^"    ' “]‹LŒ³ƒV[ƒg–¼
+Private Const MONTHLY_SHEET_NAME     As String = "ŒŸƒf[ƒ^"    ' “]‹LæƒV[ƒg–¼
 
-' è¡Œãƒ»åˆ—ç•ªå·
-Private Const DATA_START_ROWÂ  Â  Â As Long = 8
-Private Const MONTHLY_WORKNO_ROW As Long = 8
-Private Const MONTHLY_HEADER_ROW As Long = 9
-Private Const MONTHLY_DATA_START_ROW As Long = 10
-Private Const MONTHLY_MIN_COLÂ  Â  As Long = 3Â  Â ' Cåˆ—ï½
+' === d—vƒZƒ‹ˆÊ’u’è” ===
+Private Const DATE_CELL_PRIORITY As String = "D4"  ' —Dæ“ú•tƒZƒ‹i—Dææ“¾j
+Private Const DATE_CELL_NORMAL   As String = "D3"  ' ’Êí“ú•tƒZƒ‹iD4‚ª‹ó‚Ìê‡j
 
-' åˆ—ï¼ˆæ•°å€¤ã‚¤ãƒ³ãƒ‡ãƒƒã‚¯ã‚¹ï¼‰
-Private Const COL_MESSAGEÂ  As Long = 1Â  Â ' A
-Private Const COL_DATEÂ  Â  Â As Long = 2Â  Â ' B
-Private Const COL_WORKNOÂ  Â As Long = 3Â  Â ' C
-Private Const COL_CATEGORY As Long = 4Â  Â ' D
-Private Const COL_TIMEÂ  Â  Â As Long = 5Â  Â ' E
+' === sE—ñ”Ô†’è” ===
+Private Const DATA_START_ROW     As Long = 8       ' ƒf[ƒ^“o˜^ƒV[ƒg‚Ìƒf[ƒ^ŠJns
+Private Const MONTHLY_WORKNO_ROW As Long = 8       ' ŒŸƒV[ƒg‚Ìì”Ôs
+Private Const MONTHLY_HEADER_ROW As Long = 9       ' ŒŸƒV[ƒg‚Ìì‹ÆƒR[ƒhs
+Private Const MONTHLY_DATA_START_ROW As Long = 10  ' ŒŸƒV[ƒg‚Ìƒf[ƒ^ŠJns
+Private Const MONTHLY_MIN_COL    As Long = 3       ' ŒŸƒV[ƒg‚ÌÅ¬—ñiC—ñj
 
-' è¨ˆç®—å®šæ•°
-Private Const MINUTES_PER_HOURÂ  Â As Double = 60#
-Private Const MINUTES_PER_DAYÂ  Â  As Double = 1440#
-Private Const MAX_MINUTES_PER_HOUR As Long = 60
-Private Const MAX_RETRY_CLIPBOARDÂ  As Long = 5
-Private Const DEFAULT_PREVIEW_ROWS As Long = 31
+' === ƒf[ƒ^“o˜^ƒV[ƒg‚Ì—ñ’è” ===
+Private Const COL_MESSAGE  As Long = 1   ' A—ñFƒƒbƒZ[ƒW—ñ
+Private Const COL_DATE     As Long = 2   ' B—ñF“ú•t—ñ
+Private Const COL_WORKNO   As Long = 3   ' C—ñFì”Ô—ñ
+Private Const COL_CATEGORY As Long = 4   ' D—ñFì‹ÆƒR[ƒh—ñ
+Private Const COL_TIME     As Long = 5   ' E—ñFŠÔ—ñ
 
-' æ–‡å­—åˆ—å®šæ•°
-Private Const KEY_SEPARATOR As String = "|"
-Private Const MESSAGE_SEPARATOR As String = vbLf
-Private Const TIME_FORMAT As String = "[hh]mm"
-Private Const DATE_FORMAT As String = "yyyy/mm/dd"
-Private Const PREVIEW_TAB As String = vbTab
+' === ŠÔŒvZŠÖ˜A’è” ===
+Private Const MINUTES_PER_HOUR   As Double = 60#      ' 1ŠÔ‚Ì•ª”
+Private Const MINUTES_PER_DAY    As Double = 1440#    ' 1“ú‚Ì•ª”i24ŠÔ~60•ªj
+Private Const MAX_MINUTES_PER_HOUR As Long = 60       ' 1ŠÔ“à‚ÌÅ‘å•ª”iŒŸØ—pj
+Private Const MAX_RETRY_CLIPBOARD  As Long = 5        ' ƒNƒŠƒbƒvƒ{[ƒh‘€ìƒŠƒgƒ‰ƒC‰ñ”
+Private Const DEFAULT_PREVIEW_ROWS As Long = 31       ' ƒfƒtƒHƒ‹ƒgs”i‘®İ’è—pj
 
-' åˆ—è¿½åŠ ãƒãƒªã‚·ãƒ¼
-Private Const AddPolicy_Prompt As Long = 0
-Private Const AddPolicy_AutoÂ  Â As Long = 1
-Private Const AddPolicy_Reject As Long = 2
+' === •¶š—ñ‘€ì’è” ===
+Private Const KEY_SEPARATOR As String = "|"              ' ƒL[‹æØ‚è•¶šiì‹ÆƒR[ƒh|ì”Ôj
+Private Const MESSAGE_SEPARATOR As String = vbLf         ' ƒƒbƒZ[ƒW‹æØ‚è•¶š
+Private Const TIME_FORMAT As String = "[hh]mm"           ' ŠÔ•\¦‘®i24ŠÔˆÈã‘Î‰j
+Private Const DATE_FORMAT As String = "yyyy/mm/dd(aaa)"  ' “ú•t•\¦‘®
+Private Const PREVIEW_TAB As String = vbTab              ' ƒvƒŒƒrƒ…[—pƒ^ƒu•¶š
 
-' å‹•ä½œè¨­å®š
-Private Const AUTO_ADD_POLICY As Long = AddPolicy_Prompt
-Private Const ACCUMULATE_MODE As Boolean = False ' â˜…ä¿®æ­£ï¼šä¸Šæ›¸ããŒåŸºæœ¬å‹•ä½œã®ãŸã‚Falseã«å¤‰æ›´ï¼ˆãŸã ã—ã‚³ãƒ¼ãƒ‰å†…ã§ã¯æœªä½¿ç”¨ï¼‰
-Private Const DRY_RUNÂ  Â  Â  Â  Â As Boolean = False
-Private Const DUP_HIGHLIGHT_COLOR As Long = vbYellow
+' === —ñ’Ç‰Áƒ|ƒŠƒV[’è” ===
+Private Const AddPolicy_Prompt As Long = 0  ' Šm”F‚µ‚Ä‚©‚ç—ñ’Ç‰Á
+Private Const AddPolicy_Auto   As Long = 1  ' ©“®‚Å—ñ’Ç‰Á
+Private Const AddPolicy_Reject As Long = 2  ' —ñ’Ç‰Á‚ğ‹‘”Û
 
-'=========================
-' ã‚«ã‚¹ã‚¿ãƒ ã‚¨ãƒ©ãƒ¼å®šæ•°
-'=========================
-Private Const ERR_SHEET_NOT_FOUNDÂ  Â As Long = vbObjectError + 1
-Private Const ERR_INVALID_DATEÂ  Â  Â  As Long = vbObjectError + 2
-Private Const ERR_NO_DATAÂ  Â  Â  Â  Â  Â As Long = vbObjectError + 3
-Private Const ERR_DATE_NOT_FOUNDÂ  Â  As Long = vbObjectError + 4
-Private Const ERR_PROTECTION_FAILED As Long = vbObjectError + 5
+' === “®ìİ’è’è” ===
+Private Const AUTO_ADD_POLICY As Long = AddPolicy_Prompt    ' —ñ’Ç‰Á‚Ì“®ìi’Êí‚ÍŠm”Fj
+Private Const DRY_RUN         As Boolean = False           ' ƒhƒ‰ƒCƒ‰ƒ“Àsƒtƒ‰ƒO
+Private Const DUP_HIGHLIGHT_COLOR As Long = vbYellow       ' d•¡‚ÌƒnƒCƒ‰ƒCƒgF
 
 '=========================
-' ãƒ‡ãƒ¼ã‚¿æ§‹é€ ï¼ˆå®£è¨€ã‚»ã‚¯ã‚·ãƒ§ãƒ³ï¼‰
+' ƒJƒXƒ^ƒ€ƒGƒ‰[’è”
+' “Æ©ƒGƒ‰[ƒR[ƒh‚Ì’è‹`ivbObjectError + ”Ô†j
 '=========================
+Private Const ERR_SHEET_NOT_FOUND   As Long = vbObjectError + 1  ' ƒV[ƒg‚ªŒ©‚Â‚©‚ç‚È‚¢
+Private Const ERR_INVALID_DATE      As Long = vbObjectError + 2  ' –³Œø‚È“ú•t
+Private Const ERR_NO_DATA           As Long = vbObjectError + 3  ' ƒf[ƒ^‚È‚µ
+Private Const ERR_DATE_NOT_FOUND    As Long = vbObjectError + 4  ' ‘ÎÛ“ú•t‚ªŒ©‚Â‚©‚ç‚È‚¢
+Private Const ERR_PROTECTION_FAILED As Long = vbObjectError + 5  ' ƒV[ƒg•ÛŒì‰ğœ¸”s
+
+'=========================
+' ƒf[ƒ^\‘¢iTypeéŒ¾ƒZƒNƒVƒ‡ƒ“j
+' ˆ—‚É•K—v‚Èî•ñ‚ğ‚Ü‚Æ‚ß‚½\‘¢‘Ì
+'=========================
+
+' === ƒAƒvƒŠƒP[ƒVƒ‡ƒ“ó‘Ô•Û‘¶—p ===
 Private Type ApplicationState
-Â  Â  ScreenUpdating As Boolean
-Â  Â  EnableEventsÂ  Â As Boolean
-Â  Â  CalculationÂ  Â  As LongÂ  Â ' XlCalculation ã‚’æ•°å€¤ã§ä¿æŒ
+    ScreenUpdating As Boolean    ' ‰æ–ÊXVó‘Ô
+    EnableEvents   As Boolean    ' ƒCƒxƒ“ƒg—LŒøó‘Ô
+    Calculation    As Long       ' ŒvZƒ‚[ƒhiXlCalculation—ñ‹“Œ^‚ğ”’l•Ûj
 End Type
 
+' === ƒV[ƒg•ÛŒìî•ñ•Û‘¶—p ===
 Private Type SheetProtectionInfo
-Â  Â  IsProtected As Boolean
-Â  Â  PasswordÂ  Â  As String
+    IsProtected As Boolean       ' •ÛŒìó‘Ô
+    Password    As String        ' ƒpƒXƒ[ƒh
 End Type
 
+' === “]‹Lˆ—İ’è—p ===
 Private Type TransferConfig
-Â  Â  targetDateÂ  Â  Â As Date
-Â  Â  targetRowÂ  Â  Â  As Long
-Â  Â  DryRunÂ  Â  Â  Â  Â As Boolean
-Â  Â  AddPolicyÂ  Â  Â  As Long
+    targetDate     As Date       ' ‘ÎÛ“ú•t
+    targetRow      As Long       ' ‘ÎÛs”Ô†
+    DryRun         As Boolean    ' ƒhƒ‰ƒCƒ‰ƒ“Àsƒtƒ‰ƒO
+    AddPolicy      As Long       ' —ñ’Ç‰Áƒ|ƒŠƒV[
 End Type
 
+' === ˆ—Œ‹‰Êî•ñ—p ===
 Private Type ProcessResult
-Â  Â  ProcessedCountÂ  As Long
-Â  Â  DuplicateCountÂ  As Long
-Â  Â  ErrorCountÂ  Â  Â  As Long
-Â  Â  NewColumnsAdded As Long
-Â  Â  MessagesÂ  Â  Â  Â  As String
-Â  Â  SuccessÂ  Â  Â  Â  Â As Boolean
+    ProcessedCount  As Long      ' ˆ—Œ”
+    DuplicateCount  As Long      ' d•¡Œ”
+    ErrorCount      As Long      ' ƒGƒ‰[Œ”
+    NewColumnsAdded As Long      ' V‹K’Ç‰Á—ñ”
+    Messages        As String    ' Œ‹‰ÊƒƒbƒZ[ƒW
+    Success         As Boolean   ' ¬Œ÷ƒtƒ‰ƒO
 End Type
 
 '===============================================================================
-' ãƒ¡ã‚¤ãƒ³å‡¦ç†
+' yƒƒCƒ“ˆ—z
+' ŒöŠJƒvƒƒV[ƒWƒƒFƒ†[ƒU[‚ªÀs‚·‚é“]‹Lˆ—‚ÌƒGƒ“ƒgƒŠ[ƒ|ƒCƒ“ƒg
 '===============================================================================
 Public Sub TransferDataToMonthlySheet()
-Â  Â  Dim prevState As ApplicationState
-Â  Â  Dim config As TransferConfig
-Â  Â  Dim result As ProcessResult
-Â  Â  Dim protectionInfo As SheetProtectionInfo
-Â  Â  Dim wsData As Worksheet, wsMonthly As Worksheet
+    ' === •Ï”éŒ¾ ===
+    Dim prevState As ApplicationState         ' ExcelƒAƒvƒŠƒP[ƒVƒ‡ƒ“ó‘Ô•Û‘¶
+    Dim config As TransferConfig              ' “]‹Lˆ—İ’è
+    Dim result As ProcessResult               ' ˆ—Œ‹‰Ê
+    Dim protectionInfo As SheetProtectionInfo ' ƒV[ƒg•ÛŒìî•ñ
+    Dim wsData As Worksheet                   ' ƒf[ƒ^“o˜^ƒV[ƒg
+    Dim wsMonthly As Worksheet                ' ŒŸƒf[ƒ^ƒV[ƒg
 
-Â  Â  SaveAndSetApplicationState prevState
-Â  Â  On Error GoTo ErrorHandler
+    ' === ƒAƒvƒŠƒP[ƒVƒ‡ƒ“ó‘Ô‚Ì•Û‘¶‚Æ‚‘¬‰»İ’è ===
+    SaveAndSetApplicationState prevState
+    
+    ' === ƒGƒ‰[ƒnƒ“ƒhƒŠƒ“ƒOŠJn ===
+    On Error GoTo ErrorHandler
+    
+    ' === ŒŸƒV[ƒg‚ÌƒGƒ‰[•\¦ƒZƒ‹‚ğƒNƒŠƒA ===
+    ClearErrorCellOnMonthlySheet
 
-Â  Â  ' åˆæœŸåŒ–ã¨æ¤œè¨¼ï¼ˆã‚·ãƒ¼ãƒˆè¿”å´ï¼‰
-Â  Â  If Not InitializeTransferConfig(config, protectionInfo, wsData, wsMonthly) Then GoTo CleanUp
+    ' === ‰Šú‰»‚ÆŒŸØiƒV[ƒgæ“¾ŠÜ‚Şj ===
+    If Not InitializeTransferConfig(config, protectionInfo, wsData, wsMonthly) Then
+        GoTo CleanUp  ' ‰Šú‰»¸”s‚ÍI—¹ˆ—‚Ö
+    End If
 
-Â  Â  ' ãƒ‡ãƒ¼ã‚¿å‡¦ç†å®Ÿè¡Œ
-Â  Â  ExecuteDataTransfer config, wsData, wsMonthly, result
+    ' === ƒƒCƒ“‚Ìƒf[ƒ^“]‹Lˆ—Às ===
+    ExecuteDataTransfer config, wsData, wsMonthly, result
 
-Â  Â  ' çµæœè¡¨ç¤º
-Â  Â  ShowTransferResults result
-
+    ' === ˆ—Œ‹‰Ê‚ğƒ†[ƒU[‚É•\¦ ===
+    ShowTransferResults result
+    
 CleanUp:
-Â  Â  RestoreSheetProtection wsMonthly, protectionInfo
-Â  Â  RestoreApplicationState prevState
-Â  Â  Exit Sub
+    ' === Œãˆ—FƒV[ƒg•ÛŒì•œŒ³‚ÆƒAƒvƒŠƒP[ƒVƒ‡ƒ“ó‘Ô•œŒ³ ===
+    RestoreSheetProtection wsMonthly, protectionInfo
+    RestoreApplicationState prevState
+    Exit Sub
 
 ErrorHandler:
-Â  Â  MsgBox GetErrorDetails(Err.Number, Err.description), vbCritical, "è»¢è¨˜å‡¦ç†ã‚¨ãƒ©ãƒ¼"
-Â  Â  Resume CleanUp
+    ' === ƒGƒ‰[”­¶‚Ìˆ— ===
+    Dim emsg As String
+    emsg = GetErrorDetails(Err.Number, Err.description)
+    ReportErrorToMonthlySheet emsg  ' ŒŸƒV[ƒg‚ÉƒGƒ‰[ƒƒbƒZ[ƒW‚ğ•\¦
+    Resume CleanUp
 End Sub
 
 '===============================================================================
-' åˆæœŸåŒ–ã¨è¨­å®š
+' y‰Šú‰»‚Æİ’èz
+' “]‹Lˆ—‚É•K—v‚ÈŠeíİ’è‚ÆŒŸØ‚ğÀs
 '===============================================================================
 Private Function InitializeTransferConfig( _
-Â  Â  ByRef config As TransferConfig, _
-Â  Â  ByRef protInfo As SheetProtectionInfo, _
-Â  Â  ByRef wsData As Worksheet, _
-Â  Â  ByRef wsMonthly As Worksheet) As Boolean
+    ByRef config As TransferConfig, _
+    ByRef protInfo As SheetProtectionInfo, _
+    ByRef wsData As Worksheet, _
+    ByRef wsMonthly As Worksheet) As Boolean
 
-Â  Â  InitializeTransferConfig = False
+    ' === ‰Šú‰»F¸”s‚ÍFalse‚ğ•Ô‚· ===
+    InitializeTransferConfig = False
 
-Â  Â  If Not GetAndValidateWorksheets(wsData, wsMonthly) Then Exit Function
+    ' === ƒV[ƒgæ“¾‚ÆŠî–{ŒŸØ ===
+    If Not GetAndValidateWorksheets(wsData, wsMonthly) Then Exit Function
 
-Â  Â  ' ã‚·ãƒ¼ãƒˆä¿è­·ã®è§£é™¤
-Â  Â  If Not UnprotectSheetIfNeeded(wsMonthly, protInfo) Then Exit Function
+    ' === ƒV[ƒg•ÛŒì‚Ì‰ğœi•K—v‚É‰‚¶‚ÄƒpƒXƒ[ƒh“ü—Íj ===
+    If Not UnprotectSheetIfNeeded(wsMonthly, protInfo) Then Exit Function
 
-Â  Â  ' æ—¥ä»˜ã®æ±ºå®š
-Â  Â  If Not DetermineTargetDate(wsData, config.targetDate) Then Exit Function
+    ' === ‘ÎÛ“ú•t‚ÌŒˆ’èi—DæƒZƒ‹¨’ÊíƒZƒ‹‚Ì‡‚ÅŒŸõj ===
+    If Not DetermineTargetDate(wsData, config.targetDate) Then Exit Function
 
-Â  Â  ' å¯¾è±¡è¡Œã®å–å¾—
-Â  Â  config.targetRow = FindMatchingDateRow(wsMonthly, config.targetDate)
-Â  Â  If config.targetRow = 0 Then
-Â  Â  Â  Â  RaiseCustomError ERR_DATE_NOT_FOUND, Format$(config.targetDate, DATE_FORMAT)
-Â  Â  Â  Â  Exit Function
-Â  Â  End If
+    ' === ŒŸƒV[ƒg‚©‚ç‘ÎÛ“ú•t‚Ìs‚ğŒŸõ ===
+    config.targetRow = FindMatchingDateRow(wsMonthly, config.targetDate)
+    If config.targetRow = 0 Then
+        RaiseCustomError ERR_DATE_NOT_FOUND, Format$(config.targetDate, DATE_FORMAT)
+        Exit Function
+    End If
 
-Â  Â  ' ãã®ä»–è¨­å®š
-Â  Â  config.DryRun = DRY_RUN
-Â  Â  config.AddPolicy = AUTO_ADD_POLICY
+    ' === ‚»‚Ì‘¼‚Ì“®ìİ’è ===
+    config.DryRun = DRY_RUN            ' ƒhƒ‰ƒCƒ‰ƒ“İ’è
+    config.AddPolicy = AUTO_ADD_POLICY  ' —ñ’Ç‰Áƒ|ƒŠƒV[İ’è
 
-Â  Â  InitializeTransferConfig = True
+    ' === ‰Šú‰»¬Œ÷ ===
+    InitializeTransferConfig = True
 End Function
 
+'===============================================================================
+' yƒV[ƒgæ“¾‚ÆŠî–{ŒŸØz
+' •K—v‚ÈƒV[ƒg‚Ì‘¶İŠm”F‚ÆŠî–{\‘¢‚ÌŒŸØ
+'===============================================================================
 Private Function GetAndValidateWorksheets(ByRef wsData As Worksheet, ByRef wsMonthly As Worksheet) As Boolean
-Â  Â  On Error GoTo SheetError
+    On Error GoTo SheetError
 
-Â  Â  Set wsData = ThisWorkbook.Sheets(DATA_SHEET_NAME)
-Â  Â  Set wsMonthly = ThisWorkbook.Sheets(MONTHLY_SHEET_NAME)
+    ' === w’è–¼‚ÌƒV[ƒg‚ğæ“¾ ===
+    Set wsData = ThisWorkbook.Sheets(DATA_SHEET_NAME)
+    Set wsMonthly = ThisWorkbook.Sheets(MONTHLY_SHEET_NAME)
 
-Â  Â  If Not ValidateSheetStructure(wsData, wsMonthly) Then
-Â  Â  Â  Â  GetAndValidateWorksheets = False
-Â  Â  Â  Â  Exit Function
-Â  Â  End If
+    ' === ƒV[ƒg\‘¢‚ÌŠî–{ŒŸØ ===
+    If Not ValidateSheetStructure(wsData, wsMonthly) Then
+        GetAndValidateWorksheets = False
+        Exit Function
+    End If
 
-Â  Â  GetAndValidateWorksheets = True
-Â  Â  Exit Function
+    ' === ³íI—¹ ===
+    GetAndValidateWorksheets = True
+    Exit Function
 
 SheetError:
-Â  Â  RaiseCustomError ERR_SHEET_NOT_FOUND, "ã‚·ãƒ¼ãƒˆ: " & DATA_SHEET_NAME & ", " & MONTHLY_SHEET_NAME
-Â  Â  GetAndValidateWorksheets = False
-End Function
-
-Private Function ValidateSheetStructure(ByRef wsData As Worksheet, ByRef wsMonthly As Worksheet) As Boolean
-Â  Â  ' ãƒ‡ãƒ¼ã‚¿ã‚·ãƒ¼ãƒˆã®æ§‹é€ ãƒã‚§ãƒƒã‚¯
-Â  Â  If wsData.Cells(wsData.rows.Count, COL_WORKNO).End(xlUp).Row < DATA_START_ROW Then
-Â  Â  Â  Â  ValidateSheetStructure = False: Exit Function
-Â  Â  End If
-Â  Â  ' æœˆæ¬¡ã‚·ãƒ¼ãƒˆã®æ§‹é€ ãƒã‚§ãƒƒã‚¯ï¼ˆãƒ˜ãƒƒãƒ€è¡Œã«æœ€ä½Cåˆ—ã¾ã§ã‚ã‚‹ï¼‰
-Â  Â  If wsMonthly.Cells(MONTHLY_HEADER_ROW, wsMonthly.Columns.Count).End(xlToLeft).Column < MONTHLY_MIN_COL Then
-Â  Â  Â  Â  ValidateSheetStructure = False: Exit Function
-Â  Â  End If
-Â  Â  ValidateSheetStructure = True
-End Function
-
-Private Function DetermineTargetDate(ByRef wsData As Worksheet, ByRef targetDate As Date) As Boolean
-Â  Â  DetermineTargetDate = False
-Â  Â  If IsDate(wsData.Range(DATE_CELL_PRIORITY).value) Then
-Â  Â  Â  Â  targetDate = CDate(wsData.Range(DATE_CELL_PRIORITY).value)
-Â  Â  Â  Â  DetermineTargetDate = True
-Â  Â  ElseIf IsDate(wsData.Range(DATE_CELL_NORMAL).value) Then
-Â  Â  Â  Â  targetDate = CDate(wsData.Range(DATE_CELL_NORMAL).value)
-Â  Â  Â  Â  DetermineTargetDate = True
-Â  Â  Else
-Â  Â  Â  Â  RaiseCustomError ERR_INVALID_DATE, "ã‚»ãƒ« " & DATE_CELL_NORMAL & " ã¾ãŸã¯ " & DATE_CELL_PRIORITY
-Â  Â  End If
+    ' === ƒV[ƒgæ“¾ƒGƒ‰[‚Ìˆ— ===
+    RaiseCustomError ERR_SHEET_NOT_FOUND, "ƒV[ƒg: " & DATA_SHEET_NAME & ", " & MONTHLY_SHEET_NAME
+    GetAndValidateWorksheets = False
 End Function
 
 '===============================================================================
-' ãƒ‡ãƒ¼ã‚¿å‡¦ç†ã®å®Ÿè¡Œ
+' yƒV[ƒg\‘¢ŒŸØz
+' ŠeƒV[ƒg‚ª•K—vÅ¬ŒÀ‚Ì\‘¢‚ğ‚Á‚Ä‚¢‚é‚©ƒ`ƒFƒbƒN
+'===============================================================================
+Private Function ValidateSheetStructure(ByRef wsData As Worksheet, ByRef wsMonthly As Worksheet) As Boolean
+    ' === ƒf[ƒ^“o˜^ƒV[ƒg‚Ì\‘¢ƒ`ƒFƒbƒN ===
+    ' ì”Ô—ñ‚Éƒf[ƒ^ŠJnsˆÈ~‚Éƒf[ƒ^‚ª‚ ‚é‚©Šm”F
+    If wsData.Cells(wsData.rows.Count, COL_WORKNO).End(xlUp).Row < DATA_START_ROW Then
+        ValidateSheetStructure = False
+        Exit Function
+    End If
+    
+    ' === ŒŸƒf[ƒ^ƒV[ƒg‚Ì\‘¢ƒ`ƒFƒbƒN ===
+    ' ƒwƒbƒ_s‚ÉÅ’áŒÀ‚Ì—ñiC—ñ‚Ü‚Åj‚ª‚ ‚é‚©Šm”F
+    If wsMonthly.Cells(MONTHLY_HEADER_ROW, wsMonthly.Columns.Count).End(xlToLeft).Column < MONTHLY_MIN_COL Then
+        ValidateSheetStructure = False
+        Exit Function
+    End If
+    
+    ' === \‘¢ŒŸØ¬Œ÷ ===
+    ValidateSheetStructure = True
+End Function
+
+'===============================================================================
+' y‘ÎÛ“ú•tŒˆ’èz
+' ƒf[ƒ^“o˜^ƒV[ƒg‚©‚ç“]‹L‘ÎÛ‚Æ‚È‚é“ú•t‚ğæ“¾
+' —DæƒZƒ‹iD4j¨’ÊíƒZƒ‹iD3j‚Ì‡‚ÅŠm”F
+'===============================================================================
+Private Function DetermineTargetDate(ByRef wsData As Worksheet, ByRef targetDate As Date) As Boolean
+    DetermineTargetDate = False
+    
+    ' === —DæƒZƒ‹iD4j‚©‚ç“ú•tæ“¾‚ğs ===
+    If IsDate(wsData.Range(DATE_CELL_PRIORITY).value) Then
+        targetDate = CDate(wsData.Range(DATE_CELL_PRIORITY).value)
+        DetermineTargetDate = True
+        
+    ' === ’ÊíƒZƒ‹iD3j‚©‚ç“ú•tæ“¾‚ğs ===
+    ElseIf IsDate(wsData.Range(DATE_CELL_NORMAL).value) Then
+        targetDate = CDate(wsData.Range(DATE_CELL_NORMAL).value)
+        DetermineTargetDate = True
+        
+    ' === —¼ƒZƒ‹‚Æ‚à–³Œø‚Èê‡‚ÍƒGƒ‰[ ===
+    Else
+        RaiseCustomError ERR_INVALID_DATE, "ƒZƒ‹ " & DATE_CELL_NORMAL & " ‚Ü‚½‚Í " & DATE_CELL_PRIORITY
+    End If
+End Function
+
+'===============================================================================
+' yƒf[ƒ^“]‹Lˆ—‚ÌÀsz
+' ƒƒCƒ“‚Ì“]‹Lˆ—ƒƒWƒbƒNFƒf[ƒ^ûW¨WŒv¨‘‚«‚İ
 '===============================================================================
 Private Sub ExecuteDataTransfer( _
-Â  Â  ByRef config As TransferConfig, _
-Â  Â  ByRef wsData As Worksheet, _
-Â  Â  ByRef wsMonthly As Worksheet, _
-Â  Â  ByRef result As ProcessResult)
+    ByRef config As TransferConfig, _
+    ByRef wsData As Worksheet, _
+    ByRef wsMonthly As Worksheet, _
+    ByRef result As ProcessResult)
 
-Â  Â  Dim items As collectionÂ  Â  Â  Â  Â  Â  Â  ' å„è¡Œ: Array(WorkNo, Category, Minutes, RowIndex)
-Â  Â  Dim aggregated As ObjectÂ  Â  Â  Â  Â  Â  Â ' Scripting.Dictionary (key="åŒºåˆ†|ä½œç•ª", val=åˆè¨ˆåˆ†)
-Â  Â  Dim mapDict As ObjectÂ  Â  Â  Â  Â  Â  Â  Â  ' åˆ—ãƒãƒƒãƒ”ãƒ³ã‚°è¾æ›¸ (key="åŒºåˆ†|ä½œç•ª", val=åˆ—ç•ªå·)
-Â  Â  Dim lastCol As Long
+    ' === •Ï”éŒ¾ ===
+    Dim items As collection              ' ûWƒf[ƒ^FŠes‚ÍArray(WorkNo, Category, Minutes, RowIndex)
+    Dim aggregated As Object             ' WŒvƒf[ƒ^FScripting.Dictionary (key="ì‹ÆƒR[ƒh|ì”Ô", val=‡Œv•ª”)
+    Dim mapDict As Object                ' —ñƒ}ƒbƒsƒ“ƒOFDictionary (key="ì‹ÆƒR[ƒh|ì”Ô", val=—ñ”Ô†)
+    Dim lastCol As Long                  ' ŒŸƒV[ƒg‚ÌÅI—ñ”Ô†
 
-Â  Â  ' ãƒ‡ãƒ¼ã‚¿åé›†
-Â  Â  Set items = CollectTimeDataFromSheet(wsData)
-Â  Â  If items.Count = 0 Then
-Â  Â  Â  Â  RaiseCustomError ERR_NO_DATA, "æœ‰åŠ¹ãªæ™‚é–“ãƒ‡ãƒ¼ã‚¿ãŒè¦‹ã¤ã‹ã‚Šã¾ã›ã‚“"
-Â  Â  Â  Â  Exit Sub
-Â  Â  End If
+    ' === ƒXƒeƒbƒv1Fƒf[ƒ^“o˜^ƒV[ƒg‚©‚ç‚ÌŠÔƒf[ƒ^ûW ===
+    Set items = CollectTimeDataFromSheet(wsData)
+    If items.Count = 0 Then
+        RaiseCustomError ERR_NO_DATA, "—LŒø‚ÈŠÔƒf[ƒ^‚ªŒ©‚Â‚©‚è‚Ü‚¹‚ñ"
+        Exit Sub
+    End If
 
-Â  Â  ' ãƒ‡ãƒ¼ã‚¿é›†è¨ˆ
-Â  Â  Set aggregated = AggregateTimeData(items)
+    ' === ƒXƒeƒbƒv2F“¯ˆêƒL[iì‹ÆƒR[ƒh+ì”Ôj‚Ìƒf[ƒ^‚ğWŒv ===
+    Set aggregated = AggregateTimeData(items)
 
-Â  Â  ' åˆ—ãƒãƒƒãƒ”ãƒ³ã‚°ã®æ§‹ç¯‰
-Â  Â  Set mapDict = CreateObject("Scripting.Dictionary")
-Â  Â  BuildColumnMapping wsMonthly, lastCol, mapDict
+    ' === ƒXƒeƒbƒv3FŒŸƒV[ƒg‚Ì—ñƒ}ƒbƒsƒ“ƒO\’z ===
+    Set mapDict = CreateObject("Scripting.Dictionary")
+    BuildColumnMapping wsMonthly, lastCol, mapDict
 
-Â  Â  ' ãƒ—ãƒ¬ãƒ“ãƒ¥ãƒ¼è¡¨ç¤ºã¨ç¢ºèª
-Â  Â  If Not ShowPreviewAndConfirm(config.targetDate, aggregated) Then
-Â  Â  Â  Â  result.Success = False
-Â  Â  Â  Â  Exit Sub
-Â  Â  End If
+    ' === ƒXƒeƒbƒv4F“]‹L“à—e‚ÌƒvƒŒƒrƒ…[•\¦‚ÆŠm”F ===
+    If Not ShowPreviewAndConfirm(config.targetDate, aggregated) Then
+        result.Success = False
+        Exit Sub
+    End If
 
-Â  Â  ' ãƒ‰ãƒ©ã‚¤ãƒ©ãƒ³
-Â  Â  If config.DryRun Then
-Â  Â  Â  Â  result.Messages = "ãƒ‰ãƒ©ã‚¤ãƒ©ãƒ³å®Œäº†ï¼ˆå®Ÿéš›ã®æ›¸ãè¾¼ã¿ã¯å®Ÿè¡Œã•ã‚Œã¾ã›ã‚“ã§ã—ãŸï¼‰"
-Â  Â  Â  Â  result.Success = True
-Â  Â  Â  Â  Exit Sub
-Â  Â  End If
+    ' === ƒXƒeƒbƒv5Fƒhƒ‰ƒCƒ‰ƒ“Às‚Ìˆ— ===
+    If config.DryRun Then
+        result.Messages = "ƒhƒ‰ƒCƒ‰ƒ“Š®—¹iÀÛ‚Ì‘‚«‚İ‚ÍÀs‚³‚ê‚Ü‚¹‚ñ‚Å‚µ‚½j"
+        result.Success = True
+        Exit Sub
+    End If
 
-Â  Â  ' ã‚¯ãƒªãƒƒãƒ—ãƒœãƒ¼ãƒ‰ã¸ï¼ˆè¡¨å½¢å¼ï¼‰
-Â  Â  CopyDataToClipboard items, wsData
+    ' === ƒXƒeƒbƒv6Fƒf[ƒ^‚ğƒNƒŠƒbƒvƒ{[ƒh‚É•\Œ`®‚ÅƒRƒs[ ===
+    CopyDataToClipboard items, wsData
 
-Â  Â  ' ãƒ¡ãƒƒã‚»ãƒ¼ã‚¸åˆ—ãƒ˜ãƒƒãƒ€
-Â  Â  EnsureMessageColumnHeader wsMonthly
+    ' === ƒXƒeƒbƒv7FƒƒbƒZ[ƒW—ñ‚Ìƒwƒbƒ_‚ğŠm”FEİ’è ===
+    EnsureMessageColumnHeader wsMonthly
 
-Â  Â  ' æ›¸ãè¾¼ã¿
-Â  Â  WriteAggregatedDataToSheet config, wsData, wsMonthly, aggregated, mapDict, lastCol, result
+    ' === ƒXƒeƒbƒv8FWŒvƒf[ƒ^‚ğŒŸƒV[ƒg‚É‘‚«‚İiŠù‘¶’l‚Íã‘‚«j ===
+    WriteAggregatedDataToSheet config, wsMonthly, aggregated, mapDict, lastCol, result
 
-Â  Â  result.Success = True
+    ' === ˆ—¬Œ÷ƒtƒ‰ƒOİ’è ===
+    result.Success = True
 End Sub
 
 '===============================================================================
-' ãƒ‡ãƒ¼ã‚¿åé›†ï¼ˆCollection of Variant()ï¼‰
+' yƒf[ƒ^ûWz
+' ƒf[ƒ^“o˜^ƒV[ƒg‚©‚ç—LŒø‚ÈŠÔƒf[ƒ^‚ğûW
+' –ß‚è’lFCollectioniŠe—v‘f‚Í”z—ñFWorkNo, Category, Minutes, RowIndexj
 '===============================================================================
 Private Function CollectTimeDataFromSheet(ByRef wsData As Worksheet) As collection
-Â  Â  Dim col As New collection
-Â  Â  Dim lastRow As Long, r As Long
-Â  Â  Dim workNo As String, category As String
-Â  Â  Dim minutes As Double
-Â  Â  Dim arr(1 To 4) As VariantÂ  ' 1:WorkNo, 2:Category, 3:Minutes, 4:RowIndex
+    ' === •Ï”éŒ¾ ===
+    Dim col As New collection           ' ûWŒ‹‰ÊŠi”[—pƒRƒŒƒNƒVƒ‡ƒ“
+    Dim lastRow As Long, r As Long      ' sƒ‹[ƒv•Ï”
+    Dim workNo As String                ' ì”Ô
+    Dim category As String              ' ì‹ÆƒR[ƒh
+    Dim minutes As Double               ' ŠÔi•ª”j
+    Dim arr(1 To 4) As Variant         ' ƒf[ƒ^Ši”[”z—ñF1=WorkNo, 2=Category, 3=Minutes, 4=RowIndex
 
-Â  Â  lastRow = wsData.Cells(wsData.rows.Count, COL_WORKNO).End(xlUp).Row
-Â  Â  For r = DATA_START_ROW To lastRow
-Â  Â  Â  Â  workNo = Trim$(CStr(wsData.Cells(r, COL_WORKNO).value))
-Â  Â  Â  Â  category = Trim$(CStr(wsData.Cells(r, COL_CATEGORY).value))
-Â  Â  Â  Â  minutes = ConvertToMinutesEx(wsData.Cells(r, COL_TIME).value)
-Â  Â  Â  Â  If (workNo <> "") And (category <> "") And (minutes > 0) Then
-Â  Â  Â  Â  Â  Â  arr(1) = workNo
-Â  Â  Â  Â  Â  Â  arr(2) = category
-Â  Â  Â  Â  Â  Â  arr(3) = minutes
-Â  Â  Â  Â  Â  Â  arr(4) = r
-Â  Â  Â  Â  Â  Â  col.Add arr
-Â  Â  Â  Â  End If
-Â  Â  Next
-Â  Â  Set CollectTimeDataFromSheet = col
+    ' === ƒf[ƒ^”ÍˆÍ‚ÌÅIs‚ğæ“¾ ===
+    lastRow = wsData.Cells(wsData.rows.Count, COL_WORKNO).End(xlUp).Row
+    
+    ' === Šes‚Ìƒf[ƒ^‚ğƒ`ƒFƒbƒN‚µ‚Ä—LŒø‚È‚à‚Ì‚Ì‚İûW ===
+    For r = DATA_START_ROW To lastRow
+        ' Še—ñ‚Ì’l‚ğæ“¾E®Œ`
+        workNo = Trim$(CStr(wsData.Cells(r, COL_WORKNO).value))      ' ì”Ôi‘OŒã‹ó”’œ‹j
+        category = Trim$(CStr(wsData.Cells(r, COL_CATEGORY).value))  ' ì‹ÆƒR[ƒhi‘OŒã‹ó”’œ‹j
+        minutes = ConvertToMinutesEx(wsData.Cells(r, COL_TIME).value) ' ŠÔ‚ğ•ª”‚É•ÏŠ·
+        
+        ' === —LŒø«ƒ`ƒFƒbƒNFì”ÔEì‹ÆƒR[ƒhEŠÔ‚·‚×‚Ä‚É’l‚ª‚ ‚é‚à‚Ì‚Ì‚İ ===
+        If (workNo <> "") And (category <> "") And (minutes > 0) Then
+            ' ”z—ñ‚Éƒf[ƒ^‚ğƒZƒbƒg
+            arr(1) = workNo      ' ì”Ô
+            arr(2) = category    ' ì‹ÆƒR[ƒh
+            arr(3) = minutes     ' •ª”
+            arr(4) = r          ' Œ³‚Ìs”Ô†
+            
+            ' ƒRƒŒƒNƒVƒ‡ƒ“‚É’Ç‰Á
+            col.Add arr
+        End If
+    Next
+    
+    ' === ûWŒ‹‰Ê‚ğ•Ô‹p ===
+    Set CollectTimeDataFromSheet = col
 End Function
 
 '===============================================================================
-' é›†è¨ˆï¼ˆkey="åŒºåˆ†|ä½œç•ª"ï¼‰
+' yƒf[ƒ^WŒvz
+' “¯ˆêƒL[iì‹ÆƒR[ƒh+ì”Ôj‚Ìƒf[ƒ^‚ğ‡Z
+' ˆø”Fitems - ûW‚³‚ê‚½ƒf[ƒ^‚ÌƒRƒŒƒNƒVƒ‡ƒ“
+' –ß‚è’lFDictionaryikey="ì‹ÆƒR[ƒh|ì”Ô", value=‡Œv•ª”j
 '===============================================================================
 Private Function AggregateTimeData(ByRef items As collection) As Object
-Â  Â  Dim dic As Object: Set dic = CreateObject("Scripting.Dictionary")
-Â  Â  Dim i As Long, key As String, v As Variant
-Â  Â  For i = 1 To items.Count
-Â  Â  Â  Â  v = items(i)
-Â  Â  Â  Â  key = CStr(v(2)) & KEY_SEPARATOR & CStr(v(1)) ' Category|WorkNo
-Â  Â  Â  Â  If dic.Exists(key) Then
-Â  Â  Â  Â  Â  Â  dic(key) = dic(key) + CDbl(v(3))
-Â  Â  Â  Â  Else
-Â  Â  Â  Â  Â  Â  dic.Add key, CDbl(v(3))
-Â  Â  Â  Â  End If
-Â  Â  Next
-Â  Â  Set AggregateTimeData = dic
+    ' === •Ï”éŒ¾ ===
+    Dim dic As Object: Set dic = CreateObject("Scripting.Dictionary")
+    Dim i As Long                       ' ƒ‹[ƒvƒJƒEƒ“ƒ^
+    Dim key As String                   ' «‘‚ÌƒL[iì‹ÆƒR[ƒh|ì”Ôj
+    Dim v As Variant                    ' ƒRƒŒƒNƒVƒ‡ƒ“‚ÌŠe—v‘f
+
+    ' === Šeƒf[ƒ^‚ğˆ—‚µ‚ÄƒL[•Ê‚ÉWŒv ===
+    For i = 1 To items.Count
+        v = items(i)  ' ”z—ñ‚ğæ“¾F[WorkNo, Category, Minutes, RowIndex]
+        
+        ' ƒL[¶¬Fuì‹ÆƒR[ƒh|ì”Ôv‚ÌŒ`®
+        key = CStr(v(2)) & KEY_SEPARATOR & CStr(v(1))  ' Category|WorkNo
+        
+        ' Šù‘¶ƒL[‚È‚ç‰ÁZAV‹KƒL[‚È‚çV‹K’Ç‰Á
+        If dic.Exists(key) Then
+            dic(key) = dic(key) + CDbl(v(3))  ' •ª”‚ğ‰ÁZ
+        Else
+            dic.Add key, CDbl(v(3))           ' V‹K’Ç‰Á
+        End If
+    Next
+    
+    ' === WŒvŒ‹‰Ê‚ğ•Ô‹p ===
+    Set AggregateTimeData = dic
 End Function
 
 '===============================================================================
-' åˆ—ãƒãƒƒãƒ”ãƒ³ã‚°æ§‹ç¯‰
+' y—ñƒ}ƒbƒsƒ“ƒO\’zz
+' ŒŸƒV[ƒg‚ÌŠù‘¶—ñ‚©‚çuì‹ÆƒR[ƒh+ì”Ôv‚Ì‘g‚İ‡‚í‚¹‚Æ—ñ”Ô†‚Ì‘Î‰‚ğ\’z
 '===============================================================================
 Private Sub BuildColumnMapping(ByRef wsMonthly As Worksheet, ByRef lastColOut As Long, ByRef mapDict As Object)
-Â  Â  Dim lastCol As Long, c As Long
-Â  Â  Dim categoryName As String, workNoName As String, key As String
+    ' === •Ï”éŒ¾ ===
+    Dim lastCol As Long                 ' ŒŸƒV[ƒg‚ÌÅI—ñ
+    Dim c As Long                       ' —ñƒ‹[ƒv•Ï”
+    Dim categoryName As String          ' ì‹ÆƒR[ƒh–¼
+    Dim workNoName As String            ' ì”Ô–¼
+    Dim key As String                   ' ƒ}ƒbƒsƒ“ƒO—pƒL[
 
-Â  Â  lastCol = wsMonthly.Cells(MONTHLY_HEADER_ROW, wsMonthly.Columns.Count).End(xlToLeft).Column
-Â  Â  lastColOut = lastCol
+    ' === ŒŸƒV[ƒg‚ÌÅI—ñ‚ğæ“¾ ===
+    lastCol = wsMonthly.Cells(MONTHLY_HEADER_ROW, wsMonthly.Columns.Count).End(xlToLeft).Column
+    lastColOut = lastCol
 
-Â  Â  For c = MONTHLY_MIN_COL To lastCol
-Â  Â  Â  Â  categoryName = Trim$(CStr(wsMonthly.Cells(MONTHLY_HEADER_ROW, c).value))
-Â  Â  Â  Â  workNoName = Trim$(CStr(wsMonthly.Cells(MONTHLY_WORKNO_ROW, c).value))
-Â  Â  Â  Â  If categoryName <> "" Then
-Â  Â  Â  Â  Â  Â  key = categoryName & KEY_SEPARATOR & workNoName
-Â  Â  Â  Â  Â  Â  If Not mapDict.Exists(key) Then mapDict.Add key, c
-Â  Â  Â  Â  End If
-Â  Â  Next
+    ' === Še—ñ‚ğ‘–¸‚µ‚Äƒ}ƒbƒsƒ“ƒO‚ğ\’z ===
+    For c = MONTHLY_MIN_COL To lastCol
+        ' ƒwƒbƒ_siì‹ÆƒR[ƒhj‚Æì”Ôs‚©‚ç’l‚ğæ“¾
+        categoryName = Trim$(CStr(wsMonthly.Cells(MONTHLY_HEADER_ROW, c).value))  ' ì‹ÆƒR[ƒh
+        workNoName = Trim$(CStr(wsMonthly.Cells(MONTHLY_WORKNO_ROW, c).value))    ' ì”Ô
+        
+        ' === ì‹ÆƒR[ƒh‚ªİ’è‚³‚ê‚Ä‚¢‚é—ñ‚Ì‚İƒ}ƒbƒsƒ“ƒO‚É“o˜^ ===
+        If categoryName <> "" Then
+            key = categoryName & KEY_SEPARATOR & workNoName  ' uì‹ÆƒR[ƒh|ì”ÔvƒL[¶¬
+            
+            ' d•¡ƒ`ƒFƒbƒN‚µ‚Ä–¢“o˜^‚Ìê‡‚Ì‚İ’Ç‰Á
+            If Not mapDict.Exists(key) Then
+                mapDict.Add key, c  ' ƒL[‚Æ—ñ”Ô†‚ğ‘Î‰•t‚¯
+            End If
+        End If
+    Next
 End Sub
 
 '===============================================================================
-' ãƒ—ãƒ¬ãƒ“ãƒ¥ãƒ¼
+' y“]‹L“à—eƒvƒŒƒrƒ…[•\¦z
+' ƒ†[ƒU[‚É“]‹L“à—e‚ğ–‘OŠm”F‚µ‚Ä‚à‚ç‚¤
+' –ß‚è’lFTrue=‘±s, False=’†~
 '===============================================================================
 Private Function ShowPreviewAndConfirm(ByVal targetDate As Date, ByRef aggregatedData As Object) As Boolean
-Â  Â  Dim msg As String, key As Variant, n As Long, MAX_LINES As Long
-Â  Â  MAX_LINES = 50
+    ' === •Ï”éŒ¾ ===
+    Dim msg As String                   ' •\¦ƒƒbƒZ[ƒW
+    Dim key As Variant                  ' «‘‚ÌƒL[
+    Dim n As Long                       ' •\¦Œ”ƒJƒEƒ“ƒ^
+    Dim MAX_LINES As Long              ' Å‘å•\¦s”
+    MAX_LINES = 50                     ' ƒvƒŒƒrƒ…[‚Å•\¦‚·‚éÅ‘ås”
 
-Â  Â  msg = "ä»¥ä¸‹ã®å†…å®¹ã§è»¢è¨˜ã—ã¾ã™ã€‚ã‚ˆã‚ã—ã„ã§ã™ã‹ï¼Ÿ" & vbCrLf & vbCrLf & _
-Â  Â  Â  Â  Â  "å¯¾è±¡æ—¥ä»˜: " & Format$(targetDate, DATE_FORMAT) & vbCrLf & _
-Â  Â  Â  Â  Â  String(50, "-") & vbCrLf & _
-Â  Â  Â  Â  Â  "ä½œç•ª" & PREVIEW_TAB & " | åŒºåˆ†" & PREVIEW_TAB & " | æ™‚é–“" & vbCrLf & _
-Â  Â  Â  Â  Â  String(50, "-") & vbCrLf
+    ' === ƒƒbƒZ[ƒWƒwƒbƒ_ì¬ ===
+    msg = "ˆÈ‰º‚Ì“à—e‚Å“]‹L‚µ‚Ü‚·B‚æ‚ë‚µ‚¢‚Å‚·‚©H" & vbCrLf & vbCrLf & _
+          "‘ÎÛ“ú•t: " & Format$(targetDate, DATE_FORMAT) & vbCrLf & _
+          String(50, "-") & vbCrLf & _
+          "ì”Ô" & PREVIEW_TAB & " | ì‹Æº°ÄŞ" & " | ŠÔ" & vbCrLf & _
+          String(50, "-") & vbCrLf
 
-Â  Â  n = 0
-Â  Â  For Each key In aggregatedData.Keys
-Â  Â  Â  Â  n = n + 1
-Â  Â  Â  Â  If n <= MAX_LINES Then
-Â  Â  Â  Â  Â  Â  Dim parts() As String
-Â  Â  Â  Â  Â  Â  parts = Split(CStr(key), KEY_SEPARATOR)
-Â  Â  Â  Â  Â  Â  If UBound(parts) >= 1 Then
-Â  Â  Â  Â  Â  Â  Â  Â  msg = msg & parts(1) & PREVIEW_TAB & " | " & parts(0) & PREVIEW_TAB & _
-Â  Â  Â  Â  Â  Â  Â  Â  Â  Â  Â  " | " & MinutesToHHMMString(aggregatedData(key)) & vbCrLf
-Â  Â  Â  Â  Â  Â  End If
-Â  Â  Â  Â  Else
-Â  Â  Â  Â  Â  Â  msg = msg & "â€¦ã»ã‹ " & (aggregatedData.Count - MAX_LINES) & " ä»¶" & vbCrLf
-Â  Â  Â  Â  Â  Â  Exit For
-Â  Â  Â  Â  End If
-Â  Â  Next
-Â  Â  ShowPreviewAndConfirm = (MsgBox(msg, vbYesNo + vbQuestion, "è»¢è¨˜å†…å®¹ã®ç¢ºèª") = vbYes)
+    ' === WŒvƒf[ƒ^‚Ì“à—e‚ğ•\¦—p‚É®Œ` ===
+    n = 0
+    For Each key In aggregatedData.Keys
+        n = n + 1
+        
+        ' Å‘å•\¦s”ˆÈ“à‚Ìê‡‚Ì‚İÚ×•\¦
+        If n <= MAX_LINES Then
+            Dim parts() As String
+            parts = Split(CStr(key), KEY_SEPARATOR)  ' uì‹ÆƒR[ƒh|ì”Ôv‚ğ•ªŠ„
+            
+            If UBound(parts) >= 1 Then
+                ' •\Œ`®‚Åî•ñ‚ğ’Ç‰Áiì”Ô | ì‹ÆƒR[ƒh | ŠÔj
+                msg = msg & parts(1) & PREVIEW_TAB & " | " & parts(0) & PREVIEW_TAB & _
+                      " | " & MinutesToHHMMString(aggregatedData(key)) & vbCrLf
+            End If
+        Else
+            ' Å‘ås”’´‰ß‚Íc‚èŒ”‚Ì‚İ•\¦
+            msg = msg & "c‚Ù‚© " & (aggregatedData.Count - MAX_LINES) & " Œ" & vbCrLf
+            Exit For
+        End If
+    Next
+    
+    ' === ƒ†[ƒU[‚ÉŠm”Fƒ_ƒCƒAƒƒO‚ğ•\¦ ===
+    ShowPreviewAndConfirm = (MsgBox(msg, vbYesNo + vbQuestion, "“]‹L“à—e‚ÌŠm”F") = vbYes)
 End Function
 
 '===============================================================================
-' ãƒ‡ãƒ¼ã‚¿æ›¸ãè¾¼ã¿
+' yWŒvƒf[ƒ^‚Ì‘‚«‚İz
+' WŒv‚³‚ê‚½ƒf[ƒ^‚ğŒŸƒV[ƒg‚Ì“KØ‚È—ñ‚É‘‚«‚Ş
+' ¦Šù‘¶’l‚ª‚ ‚éê‡‚Íã‘‚«i‰ÁZ‚Í‚µ‚È‚¢j
 '===============================================================================
 Private Sub WriteAggregatedDataToSheet( _
-Â  Â  ByRef config As TransferConfig, _
-    ByRef wsData As Worksheet, _
-Â  Â  ByRef wsMonthly As Worksheet, _
-Â  Â  ByRef aggregatedData As Object, _
-Â  Â  ByRef mapDict As Object, _
-Â  Â  ByRef lastCol As Long, _
-Â  Â  ByRef result As ProcessResult)
+    ByRef config As TransferConfig, _
+    ByRef wsMonthly As Worksheet, _
+    ByRef aggregatedData As Object, _
+    ByRef mapDict As Object, _
+    ByRef lastCol As Long, _
+    ByRef result As ProcessResult)
 
-Â  Â  Dim key As Variant, parts() As String
-Â  Â  Dim targetCol As Long
+    ' === •Ï”éŒ¾ ===
+    Dim key As Variant                  ' «‘‚ÌƒL[iì‹ÆƒR[ƒh|ì”Ôj
+    Dim parts() As String               ' ƒL[‚Ì•ªŠ„Œ‹‰Ê
+    Dim targetCol As Long               ' ‘‚«‚İ‘ÎÛ—ñ
 
-    ' ãƒ¡ãƒƒã‚»ãƒ¼ã‚¸è¡¨ç¤ºã‚¨ãƒªã‚¢ã‚’åˆæœŸåŒ–
-    ClearMessageArea wsData
+    ' === Œ‹‰ÊƒJƒEƒ“ƒ^‰Šú‰» ===
+    result.ProcessedCount = 0
+    result.DuplicateCount = 0
+    result.NewColumnsAdded = 0
 
-Â  Â  result.ProcessedCount = 0
-Â  Â  result.DuplicateCount = 0
-Â  Â  result.NewColumnsAdded = 0
-
-Â  Â  For Each key In aggregatedData.Keys
-Â  Â  Â  Â  parts = Split(CStr(key), KEY_SEPARATOR) ' 0:åŒºåˆ† 1:ä½œç•ª
-Â  Â  Â  Â  If UBound(parts) >= 1 Then
-Â  Â  Â  Â  Â  Â  targetCol = GetOrCreateColumn(parts(0), parts(1), config, wsMonthly, mapDict, lastCol, result)
-Â  Â  Â  Â  Â  Â  If targetCol > 0 Then
-                ' å¼•æ•°ã‹ã‚‰ accumulateMode ã‚’å‰Šé™¤ã—ã€wsData ã‚’è¿½åŠ 
-Â  Â  Â  Â  Â  Â  Â  Â  WriteTimeDataToCell wsData, wsMonthly, config.targetRow, targetCol, aggregatedData(key), result
-Â  Â  Â  Â  Â  Â  Â  Â  result.ProcessedCount = result.ProcessedCount + 1
-Â  Â  Â  Â  Â  Â  End If
-Â  Â  Â  Â  End If
-Â  Â  Next
-End Sub
-
-Private Function GetOrCreateColumn( _
-Â  Â  ByVal category As String, ByVal workNo As String, _
-Â  Â  ByRef config As TransferConfig, _
-Â  Â  ByRef wsMonthly As Worksheet, _
-Â  Â  ByRef mapDict As Object, _
-Â  Â  ByRef lastCol As Long, _
-Â  Â  ByRef result As ProcessResult) As Long
-
-Â  Â  Dim key As String: key = category & KEY_SEPARATOR & workNo
-Â  Â  Dim newCol As Long
-
-Â  Â  If mapDict.Exists(key) Then
-Â  Â  Â  Â  GetOrCreateColumn = mapDict(key)
-Â  Â  Â  Â  Exit Function
-Â  Â  End If
-
-Â  Â  Select Case config.AddPolicy
-Â  Â  Â  Â  Case AddPolicy_Reject
-Â  Â  Â  Â  Â  Â  GetOrCreateColumn = 0
-Â  Â  Â  Â  Case AddPolicy_Auto
-Â  Â  Â  Â  Â  Â  newCol = CreateNewColumn(category, workNo, wsMonthly, mapDict, lastCol)
-Â  Â  Â  Â  Â  Â  If newCol > 0 Then result.NewColumnsAdded = result.NewColumnsAdded + 1
-Â  Â  Â  Â  Â  Â  GetOrCreateColumn = newCol
-Â  Â  Â  Â  Case Else ' Prompt
-Â  Â  Â  Â  Â  Â  If ConfirmColumnCreation(category, workNo) Then
-Â  Â  Â  Â  Â  Â  Â  Â  newCol = CreateNewColumn(category, workNo, wsMonthly, mapDict, lastCol)
-Â  Â  Â  Â  Â  Â  Â  Â  If newCol > 0 Then result.NewColumnsAdded = result.NewColumnsAdded + 1
-Â  Â  Â  Â  Â  Â  Â  Â  GetOrCreateColumn = newCol
-Â  Â  Â  Â  Â  Â  Else
-Â  Â  Â  Â  Â  Â  Â  Â  GetOrCreateColumn = 0
-Â  Â  Â  Â  Â  Â  End If
-Â  Â  End Select
-End Function
-
-Private Function CreateNewColumn( _
-Â  Â  ByVal category As String, ByVal workNo As String, _
-Â  Â  ByRef wsMonthly As Worksheet, _
-Â  Â  ByRef mapDict As Object, _
-Â  Â  ByRef lastCol As Long) As Long
-
-Â  Â  Dim newCol As Long
-Â  Â  newCol = lastCol + 1
-
-Â  Â  wsMonthly.Cells(MONTHLY_HEADER_ROW, newCol).value = category
-Â  Â  wsMonthly.Cells(MONTHLY_WORKNO_ROW, newCol).value = workNo
-
-Â  Â  ApplyColumnFormatting wsMonthly, newCol, IIf(lastCol >= MONTHLY_MIN_COL, lastCol, MONTHLY_MIN_COL)
-Â  Â  SetDataColumnFormat wsMonthly, newCol
-
-Â  Â  mapDict.Add category & KEY_SEPARATOR & workNo, newCol
-Â  Â  lastCol = newCol
-
-Â  Â  CreateNewColumn = newCol
-End Function
-
-Private Sub ApplyColumnFormatting(ByRef wsMonthly As Worksheet, ByVal newCol As Long, ByVal sourceCol As Long)
-Â  Â  On Error Resume Next
-Â  Â  wsMonthly.Columns(newCol).ColumnWidth = wsMonthly.Columns(sourceCol).ColumnWidth
-Â  Â  With wsMonthly.Cells(MONTHLY_HEADER_ROW, newCol)
-Â  Â  Â  Â  .HorizontalAlignment = wsMonthly.Cells(MONTHLY_HEADER_ROW, sourceCol).HorizontalAlignment
-Â  Â  Â  Â  .VerticalAlignment = wsMonthly.Cells(MONTHLY_HEADER_ROW, sourceCol).VerticalAlignment
-Â  Â  Â  Â  .Interior.Color = wsMonthly.Cells(MONTHLY_HEADER_ROW, sourceCol).Interior.Color
-Â  Â  Â  Â  .Font.Bold = wsMonthly.Cells(MONTHLY_HEADER_ROW, sourceCol).Font.Bold
-Â  Â  Â  Â  .WrapText = wsMonthly.Cells(MONTHLY_HEADER_ROW, sourceCol).WrapText
-Â  Â  End With
-Â  Â  With wsMonthly.Cells(MONTHLY_WORKNO_ROW, newCol)
-Â  Â  Â  Â  .HorizontalAlignment = wsMonthly.Cells(MONTHLY_WORKNO_ROW, sourceCol).HorizontalAlignment
-Â  Â  Â  Â  .VerticalAlignment = wsMonthly.Cells(MONTHLY_WORKNO_ROW, sourceCol).VerticalAlignment
-Â  Â  Â  Â  .Interior.Color = wsMonthly.Cells(MONTHLY_WORKNO_ROW, sourceCol).Interior.Color
-Â  Â  Â  Â  .Font.Bold = wsMonthly.Cells(MONTHLY_WORKNO_ROW, sourceCol).Font.Bold
-Â  Â  Â  Â  .WrapText = wsMonthly.Cells(MONTHLY_WORKNO_ROW, sourceCol).WrapText
-Â  Â  End With
-Â  Â  On Error GoTo 0
-End Sub
-
-Private Sub SetDataColumnFormat(ByRef wsMonthly As Worksheet, ByVal col As Long)
-Â  Â  Dim lastRow As Long
-Â  Â  lastRow = wsMonthly.Cells(wsMonthly.rows.Count, COL_DATE).End(xlUp).Row
-Â  Â  If lastRow < MONTHLY_DATA_START_ROW Then lastRow = MONTHLY_DATA_START_ROW + DEFAULT_PREVIEW_ROWS
-Â  Â  With wsMonthly.Range(wsMonthly.Cells(MONTHLY_DATA_START_ROW, col), wsMonthly.Cells(lastRow, col))
-Â  Â  Â  Â  .NumberFormatLocal = TIME_FORMAT
-Â  Â  End With
-End Sub
-
-Private Function ConfirmColumnCreation(ByVal category As String, ByVal workNo As String) As Boolean
-Â  Â  ConfirmColumnCreation = (MsgBox( _
-Â  Â  Â  Â  "åŒºåˆ†ã€" & category & "ã€ï¼‹ä½œç•ªã€" & workNo & "ã€ã®åˆ—ãŒã‚ã‚Šã¾ã›ã‚“ã€‚" & vbCrLf & _
-Â  Â  Â  Â  "æœˆæ¬¡ãƒ‡ãƒ¼ã‚¿ã‚·ãƒ¼ãƒˆã«æ–°ã—ã„åˆ—ã‚’è¿½åŠ ã—ã¾ã™ã‹ï¼Ÿ", _
-Â  Â  Â  Â  vbYesNo + vbQuestion, "åˆ—ã®è¿½åŠ ç¢ºèª") = vbYes)
-End Function
-
-Private Sub WriteTimeDataToCell( _
-    ByRef wsData As Worksheet, _
-Â  Â  ByRef wsMonthly As Worksheet, _
-Â  Â  ByVal targetRow As Long, ByVal targetCol As Long, _
-Â  Â  ByVal minutes As Double, _
-Â  Â  ByRef result As ProcessResult)
-
-Â  Â  Dim existingValue As Double, newValue As Double
-Â  Â  existingValue = NzD(wsMonthly.Cells(targetRow, targetCol).value, 0#)
-Â  Â  newValue = MinutesToSerial(minutes)
-
-Â  Â  If existingValue <> 0# Then
-Â  Â  Â  Â  result.DuplicateCount = result.DuplicateCount + 1
-Â  Â  Â  Â  HighlightDuplicateCell wsMonthly.Cells(targetRow, targetCol)
-        ' å¼•æ•°ã‚’ä¿®æ­£
-Â  Â  Â  Â  LogDuplicateMessage wsData, _
-Â  Â  Â  Â  Â  Â  CStr(wsMonthly.Cells(MONTHLY_HEADER_ROW, targetCol).value), _
-Â  Â  Â  Â  Â  Â  CStr(wsMonthly.Cells(MONTHLY_WORKNO_ROW, targetCol).value), _
-Â  Â  Â  Â  Â  Â  existingValue, newValue
-Â  Â  End If
-
-Â  Â  With wsMonthly.Cells(targetRow, targetCol)
-        ' å¸¸ã«æ–°ã—ã„å€¤ã§ä¸Šæ›¸ãã™ã‚‹
-Â  Â  Â  Â  .value = newValue
-Â  Â  Â  Â  .NumberFormatLocal = TIME_FORMAT
-Â  Â  End With
-End Sub
-
-Private Sub HighlightDuplicateCell(ByRef cell As Range)
-Â  Â  With cell.Interior
-Â  Â  Â  Â  .Pattern = xlSolid
-Â  Â  Â  Â  .Color = DUP_HIGHLIGHT_COLOR
-Â  Â  End With
-End Sub
-
-Private Sub LogDuplicateMessage( _
-    ByRef wsData As Worksheet, _
-Â  Â  ByVal category As String, ByVal workNo As String, _
-Â  Â  ByVal oldValue As Double, ByVal newValue As Double)
-
-Â  Â  Dim message As String
-    ' ãƒ¡ãƒƒã‚»ãƒ¼ã‚¸ã‚’ã€Œ(ä¸Šæ›¸)ã€ã«å›ºå®š
-Â  Â  message = "æ—¢å­˜å€¤æ¤œå‡º: [" & workNo & "|" & category & "] æ—§=" & SerialToHHMMString(oldValue) & _
-Â  Â  Â  Â  Â  Â  Â  " æ–°=" & SerialToHHMMString(newValue) & " (ä¸Šæ›¸)"
-    ' ãƒ¡ãƒƒã‚»ãƒ¼ã‚¸ã®æ›¸ãè¾¼ã¿å…ˆã¨å¼•æ•°ã‚’å¤‰æ›´
-Â  Â  AppendMessageToCell wsData, message
+    ' === WŒvƒf[ƒ^‚ÌŠe€–Ú‚ğˆ— ===
+    For Each key In aggregatedData.Keys
+        parts = Split(CStr(key), KEY_SEPARATOR)  ' 0:ì‹ÆƒR[ƒh 1:ì”Ô
+        
+        If UBound(parts) >= 1 Then
+            ' ‘‚«‚İ‘ÎÛ—ñ‚ğæ“¾i‘¶İ‚µ‚È‚¢ê‡‚ÍV‹Kì¬j
+            targetCol = GetOrCreateColumn(parts(0), parts(1), config, wsMonthly, mapDict, lastCol, result)
+            
+            If targetCol > 0 Then
+                ' ÀÛ‚Ìƒf[ƒ^‘‚«‚İÀs
+                WriteTimeDataToCell wsMonthly, config.targetRow, targetCol, aggregatedData(key), result
+                result.ProcessedCount = result.ProcessedCount + 1
+            End If
+        End If
+    Next
 End Sub
 
 '===============================================================================
-' ã‚¯ãƒªãƒƒãƒ—ãƒœãƒ¼ãƒ‰
+' y—ñæ“¾‚Ü‚½‚ÍV‹Kì¬z
+' w’è‚³‚ê‚½ì‹ÆƒR[ƒh+ì”Ô‚Ì—ñ‚ğæ“¾A‘¶İ‚µ‚È‚¢ê‡‚Íİ’è‚É‰‚¶‚ÄV‹Kì¬
+' –ß‚è’lF—ñ”Ô†i0=ì¬‹‘”Û‚Ü‚½‚Í¸”sj
+'===============================================================================
+Private Function GetOrCreateColumn( _
+    ByVal category As String, ByVal workNo As String, _
+    ByRef config As TransferConfig, _
+    ByRef wsMonthly As Worksheet, _
+    ByRef mapDict As Object, _
+    ByRef lastCol As Long, _
+    ByRef result As ProcessResult) As Long
+
+    ' === •Ï”éŒ¾ ===
+    Dim key As String: key = category & KEY_SEPARATOR & workNo  ' ƒL[¶¬
+    Dim newCol As Long                                          ' V‹Kì¬—ñ”Ô†
+
+    ' === Šù‘¶—ñ‚ª‘¶İ‚·‚éê‡‚Í‚»‚Ì—ñ”Ô†‚ğ•Ô‚· ===
+    If mapDict.Exists(key) Then
+        GetOrCreateColumn = mapDict(key)
+        Exit Function
+    End If
+
+    ' === —ñ’Ç‰Áƒ|ƒŠƒV[‚É‰‚¶‚½ˆ— ===
+    Select Case config.AddPolicy
+        Case AddPolicy_Reject
+            ' —ñ’Ç‰Á‹‘”ÛF0‚ğ•Ô‚µ‚Äˆ—ƒXƒLƒbƒv
+            GetOrCreateColumn = 0
+            
+        Case AddPolicy_Auto
+            ' ©“®—ñ’Ç‰ÁFŠm”F‚È‚µ‚ÅV‹K—ñì¬
+            newCol = CreateNewColumn(category, workNo, wsMonthly, mapDict, lastCol)
+            If newCol > 0 Then result.NewColumnsAdded = result.NewColumnsAdded + 1
+            GetOrCreateColumn = newCol
+            
+        Case Else ' AddPolicy_Prompt
+            ' Šm”FŒã—ñ’Ç‰ÁFƒ†[ƒU[‚ÉŠm”F‚µ‚Ä‚©‚çì¬
+            If ConfirmColumnCreation(category, workNo) Then
+                newCol = CreateNewColumn(category, workNo, wsMonthly, mapDict, lastCol)
+                If newCol > 0 Then result.NewColumnsAdded = result.NewColumnsAdded + 1
+                GetOrCreateColumn = newCol
+            Else
+                GetOrCreateColumn = 0  ' ƒ†[ƒU[‚ª‹‘”Û
+            End If
+    End Select
+End Function
+
+'===============================================================================
+' yV‹K—ñì¬z
+' ŒŸƒV[ƒg‚ÉV‚µ‚¢ì‹ÆƒR[ƒh+ì”Ô‚Ì—ñ‚ğì¬‚µA“KØ‚È‘®‚ğİ’è
+' –ß‚è’lFì¬‚µ‚½—ñ”Ô†
+'===============================================================================
+Private Function CreateNewColumn( _
+    ByVal category As String, ByVal workNo As String, _
+    ByRef wsMonthly As Worksheet, _
+    ByRef mapDict As Object, _
+    ByRef lastCol As Long) As Long
+
+    ' === V‹K—ñ”Ô†Œˆ’è ===
+    Dim newCol As Long
+    newCol = lastCol + 1
+
+    ' === ƒwƒbƒ_î•ñİ’è ===
+    wsMonthly.Cells(MONTHLY_HEADER_ROW, newCol).value = category  ' ì‹ÆƒR[ƒhs
+    wsMonthly.Cells(MONTHLY_WORKNO_ROW, newCol).value = workNo    ' ì”Ôs
+
+    ' === Šù‘¶—ñ‚Ì‘®‚ğƒRƒs[‚µ‚Ä“K—p ===
+    ApplyColumnFormatting wsMonthly, newCol, IIf(lastCol >= MONTHLY_MIN_COL, lastCol, MONTHLY_MIN_COL)
+    
+    ' === ƒf[ƒ^•”•ª‚ÌŠÔ‘®İ’è ===
+    SetDataColumnFormat wsMonthly, newCol
+
+    ' === ƒ}ƒbƒsƒ“ƒO«‘‚ÆÅI—ñ”Ô†‚ÌXV ===
+    mapDict.Add category & KEY_SEPARATOR & workNo, newCol
+    lastCol = newCol
+
+    ' === ì¬‚µ‚½—ñ”Ô†‚ğ•Ô‹p ===
+    CreateNewColumn = newCol
+End Function
+
+'===============================================================================
+' y—ñ‘®“K—pz
+' V‹Kì¬—ñ‚ÉŠù‘¶—ñ‚Ì‘®i•A”z’uAF‚È‚Çj‚ğƒRƒs[
+'===============================================================================
+Private Sub ApplyColumnFormatting(ByRef wsMonthly As Worksheet, ByVal newCol As Long, ByVal sourceCol As Long)
+    On Error Resume Next  ' ‘®ƒGƒ‰[‚Í–³‹‚µ‚Ä‘±s
+    
+    ' === —ñ•‚ÌƒRƒs[ ===
+    wsMonthly.Columns(newCol).ColumnWidth = wsMonthly.Columns(sourceCol).ColumnWidth
+    
+    ' === ƒwƒbƒ_siì‹ÆƒR[ƒhsj‚Ì‘®ƒRƒs[ ===
+    With wsMonthly.Cells(MONTHLY_HEADER_ROW, newCol)
+        .HorizontalAlignment = wsMonthly.Cells(MONTHLY_HEADER_ROW, sourceCol).HorizontalAlignment
+        .VerticalAlignment = wsMonthly.Cells(MONTHLY_HEADER_ROW, sourceCol).VerticalAlignment
+        .Interior.Color = wsMonthly.Cells(MONTHLY_HEADER_ROW, sourceCol).Interior.Color
+        .Font.Bold = wsMonthly.Cells(MONTHLY_HEADER_ROW, sourceCol).Font.Bold
+        .WrapText = wsMonthly.Cells(MONTHLY_HEADER_ROW, sourceCol).WrapText
+    End With
+    
+    ' === ì”Ôs‚Ì‘®ƒRƒs[ ===
+    With wsMonthly.Cells(MONTHLY_WORKNO_ROW, newCol)
+        .HorizontalAlignment = wsMonthly.Cells(MONTHLY_WORKNO_ROW, sourceCol).HorizontalAlignment
+        .VerticalAlignment = wsMonthly.Cells(MONTHLY_WORKNO_ROW, sourceCol).VerticalAlignment
+        .Interior.Color = wsMonthly.Cells(MONTHLY_WORKNO_ROW, sourceCol).Interior.Color
+        .Font.Bold = wsMonthly.Cells(MONTHLY_WORKNO_ROW, sourceCol).Font.Bold
+        .WrapText = wsMonthly.Cells(MONTHLY_WORKNO_ROW, sourceCol).WrapText
+    End With
+    
+    On Error GoTo 0  ' ƒGƒ‰[ƒnƒ“ƒhƒŠƒ“ƒO‚ğŒ³‚É–ß‚·
+End Sub
+
+'===============================================================================
+' yƒf[ƒ^—ñ‘®İ’èz
+' V‹Kì¬—ñ‚Ìƒf[ƒ^•”•ª‚ÉŠÔ•\¦‘®‚ğ“K—p
+'===============================================================================
+Private Sub SetDataColumnFormat(ByRef wsMonthly As Worksheet, ByVal col As Long)
+    ' === ƒf[ƒ^”ÍˆÍ‚ÌÅIs‚ğæ“¾ ===
+    Dim lastRow As Long
+    lastRow = wsMonthly.Cells(wsMonthly.rows.Count, COL_DATE).End(xlUp).Row
+    If lastRow < MONTHLY_DATA_START_ROW Then lastRow = MONTHLY_DATA_START_ROW + DEFAULT_PREVIEW_ROWS
+    
+    ' === ƒf[ƒ^”ÍˆÍ‘S‘Ì‚ÉŠÔ‘®‚ğ“K—p ===
+    With wsMonthly.Range(wsMonthly.Cells(MONTHLY_DATA_START_ROW, col), wsMonthly.Cells(lastRow, col))
+        .NumberFormatLocal = TIME_FORMAT  ' [hh]mm Œ`®i24ŠÔˆÈã‘Î‰j
+    End With
+End Sub
+
+'===============================================================================
+' y—ñì¬Šm”Fƒ_ƒCƒAƒƒOz
+' V‹K—ñì¬‘O‚Éƒ†[ƒU[‚ÉŠm”F‚ğ‹‚ß‚é
+' –ß‚è’lFTrue=ì¬‹–‰Â, False=ì¬‹‘”Û
+'===============================================================================
+Private Function ConfirmColumnCreation(ByVal category As String, ByVal workNo As String) As Boolean
+    ConfirmColumnCreation = (MsgBox( _
+        "ì‹Æº°ÄŞw" & category & "x{ì”Ôw" & workNo & "x‚Ì—ñ‚ª‚ ‚è‚Ü‚¹‚ñB" & vbCrLf & _
+        "ŒŸƒf[ƒ^ƒV[ƒg‚ÉV‚µ‚¢—ñ‚ğ’Ç‰Á‚µ‚Ü‚·‚©H", _
+        vbYesNo + vbQuestion, "—ñ‚Ì’Ç‰ÁŠm”F") = vbYes)
+End Function
+
+'===============================================================================
+' yƒZƒ‹‚Ö‚ÌŠÔƒf[ƒ^‘‚«‚İz
+' w’èƒZƒ‹‚ÉŠÔƒf[ƒ^‚ğ‘‚«‚İAŠù‘¶’l‚ª‚ ‚éê‡‚Íd•¡ˆ—‚ğÀs
+' ¦d—vFŠù‘¶’l‚Íã‘‚«i‰ÁZ‚Í‚µ‚È‚¢j
+'===============================================================================
+Private Sub WriteTimeDataToCell( _
+    ByRef wsMonthly As Worksheet, _
+    ByVal targetRow As Long, ByVal targetCol As Long, _
+    ByVal minutes As Double, _
+    ByRef result As ProcessResult)
+
+    ' === •Ï”éŒ¾ ===
+    Dim existingValue As Double         ' Šù‘¶’liƒVƒŠƒAƒ‹’lj
+    Dim newValue As Double              ' V‹K’liƒVƒŠƒAƒ‹’lj
+    Dim isDup As Boolean                ' d•¡ƒtƒ‰ƒO
+
+    ' === Šù‘¶’lƒ`ƒFƒbƒN ===
+    existingValue = NzD(wsMonthly.Cells(targetRow, targetCol).value, 0#)
+    newValue = MinutesToSerial(minutes)  ' •ª”‚ğExcelƒVƒŠƒAƒ‹’l‚É•ÏŠ·
+    isDup = (existingValue <> 0#)       ' Šù‘¶’l‚ª‚ ‚é‚©ƒ`ƒFƒbƒN
+
+    ' === d•¡‚Ìˆ— ===
+    If isDup Then
+        result.DuplicateCount = result.DuplicateCount + 1
+        
+        ' ƒZƒ‹‚ğ‰©F‚ÅƒnƒCƒ‰ƒCƒg
+        HighlightDuplicateCell wsMonthly.Cells(targetRow, targetCol)
+        
+        ' ƒƒbƒZ[ƒW—ñ‚ÉŒ³‚Ì’l‚ğ‹L˜^iã‘‚«‚³‚ê‚é’l‚Ì‚İj
+        LogDuplicateMessage wsMonthly, targetRow, _
+            CStr(wsMonthly.Cells(MONTHLY_HEADER_ROW, targetCol).value), _
+            CStr(wsMonthly.Cells(MONTHLY_WORKNO_ROW, targetCol).value), _
+            existingValue
+    End If
+
+    ' === ƒZƒ‹‚Ö‚Ì’l‘‚«‚İiã‘‚«ŒÅ’èj ===
+    With wsMonthly.Cells(targetRow, targetCol)
+        .value = newValue                       ' V‚µ‚¢’l‚Åã‘‚«
+        .NumberFormatLocal = TIME_FORMAT        ' ŠÔ•\¦‘®“K—p
+    End With
+End Sub
+
+'===============================================================================
+' yd•¡ƒZƒ‹ƒnƒCƒ‰ƒCƒgz
+' d•¡‚ª”­¶‚µ‚½ƒZƒ‹‚ğw’èF‚ÅƒnƒCƒ‰ƒCƒg•\¦
+'===============================================================================
+Private Sub HighlightDuplicateCell(ByRef cell As Range)
+    With cell.Interior
+        .Pattern = xlSolid                      ' “h‚è‚Â‚Ô‚µƒpƒ^[ƒ“
+        .Color = DUP_HIGHLIGHT_COLOR           ' w’èFi’Êí‚Í‰©Fj
+    End With
+End Sub
+
+'===============================================================================
+' yd•¡ƒƒbƒZ[ƒW‹L˜^z
+' d•¡”­¶‚ÉŒ³‚Ì’l‚ğƒƒbƒZ[ƒW—ñ‚É‹L˜^
+' ¦d—lFŒ³X“ü‚Á‚Ä‚¢‚½ŠÔ‚Ì‚İ‚ğ‹L˜^i—á: "1:30"j
+'===============================================================================
+Private Sub LogDuplicateMessage( _
+    ByRef wsMonthly As Worksheet, ByVal rowNum As Long, _
+    ByVal category As String, ByVal workNo As String, _
+    ByVal oldValue As Double)
+    
+    ' === d•¡ƒƒbƒZ[ƒW¶¬ ===
+    ' uŠù‘¶’lŒŸo: [ì”Ô|ì‹ÆƒR[ƒh] ‹Œ=ŠÔ•\¦v‚ÌŒ`®
+    Dim message As String
+    message = "Šù‘¶’lŒŸo: [" & workNo & "|" & category & "] ‹Œ=" & SerialToHHMMString(oldValue)
+    
+    ' === ƒƒbƒZ[ƒW—ñ‚É’Ç‹L ===
+    AppendMessageToCell wsMonthly, rowNum, message
+End Sub
+
+'===============================================================================
+' yƒNƒŠƒbƒvƒ{[ƒh‘€ìz
+' ûWƒf[ƒ^‚ğƒ^ƒu‹æØ‚èƒeƒLƒXƒg‚Æ‚µ‚ÄƒNƒŠƒbƒvƒ{[ƒh‚ÉƒRƒs[
 '===============================================================================
 Private Sub CopyDataToClipboard(ByRef items As collection, ByRef wsData As Worksheet)
-Â  Â  Dim sb As String, i As Long, v As Variant
-Â  Â  For i = 1 To items.Count
-Â  Â  Â  Â  v = items(i)
-Â  Â  Â  Â  ' WorkNo, Category, è¡¨ç¤ºæ–‡å­—åˆ—ã¨ã—ã¦ã®æ™‚é–“
-Â  Â  Â  Â  sb = sb & CStr(v(1)) & vbTab & CStr(v(2)) & vbTab & _
-Â  Â  Â  Â  Â  Â  Â  Â  Â CStr(wsData.Cells(CLng(v(4)), COL_TIME).text) & vbCrLf
-Â  Â  Next
-Â  Â  If Len(sb) > 0 Then CopyTextToClipboardSafe sb
-End Sub
+    ' === •Ï”éŒ¾ ===
+    Dim sb As String                    ' o—Í•¶š—ñƒoƒbƒtƒ@
+    Dim i As Long                       ' ƒ‹[ƒvƒJƒEƒ“ƒ^
+    Dim v As Variant                    ' ƒRƒŒƒNƒVƒ‡ƒ“‚ÌŠe—v‘f
 
-Private Sub CopyTextToClipboardSafe(ByVal textToCopy As String)
-Â  Â  On Error GoTo APIFallback
-Â  Â  Dim dataObject As Object
-Â  Â  Set dataObject = CreateObject("Forms.DataObject") ' å‚ç…§è¨­å®šä¸è¦ï¼ç„¡ã„ç’°å¢ƒã‚‚ã‚ã‚‹
-Â  Â  dataObject.SetText textToCopy
-Â  Â  dataObject.PutInClipboard
-Â  Â  Exit Sub
-APIFallback:
-Â  Â  CopyTextToClipboardWinAPI textToCopy
-End Sub
-
-Private Sub CopyTextToClipboardWinAPI(ByVal textToCopy As String)
-#If VBA7 Then
-Â  Â  Dim hGlobalMemory As LongPtr, lpGlobalMemory As LongPtr
-#Else
-Â  Â  Dim hGlobalMemory As Long, lpGlobalMemory As Long
-#End If
-Â  Â  Dim bytesNeeded As Long, retryCount As Long
-
-Â  Â  If Len(textToCopy) = 0 Then Exit Sub
-Â  Â  bytesNeeded = (Len(textToCopy) + 1) * 2
-Â  Â  hGlobalMemory = GlobalAlloc(GMEM_MOVEABLE, bytesNeeded)
-Â  Â  If hGlobalMemory = 0 Then Exit Sub
-
-Â  Â  lpGlobalMemory = GlobalLock(hGlobalMemory)
-Â  Â  If lpGlobalMemory <> 0 Then
-Â  Â  Â  Â  lstrcpyW lpGlobalMemory, StrPtr(textToCopy)
-Â  Â  Â  Â  GlobalUnlock hGlobalMemory
-
-Â  Â  Â  Â  For retryCount = 1 To MAX_RETRY_CLIPBOARD
-Â  Â  Â  Â  Â  Â  If OpenClipboard(0) <> 0 Then Exit For
-Â  Â  Â  Â  Â  Â  DoEvents
-Â  Â  Â  Â  Next retryCount
-
-Â  Â  Â  Â  If retryCount <= MAX_RETRY_CLIPBOARD Then
-Â  Â  Â  Â  Â  Â  EmptyClipboard
-Â  Â  Â  Â  Â  Â  If SetClipboardData(CF_UNICODETEXT, hGlobalMemory) = 0 Then
-Â  Â  Â  Â  Â  Â  Â  Â  GlobalFree hGlobalMemory
-Â  Â  Â  Â  Â  Â  End If
-Â  Â  Â  Â  Â  Â  CloseClipboard
-Â  Â  Â  Â  Else
-Â  Â  Â  Â  Â  Â  GlobalFree hGlobalMemory
-Â  Â  Â  Â  End If
-Â  Â  Else
-Â  Â  Â  Â  GlobalFree hGlobalMemory
-Â  Â  End If
+    ' === Šeƒf[ƒ^€–Ú‚ğƒ^ƒu‹æØ‚èŒ`®‚Å˜AŒ‹ ===
+    For i = 1 To items.Count
+        v = items(i)  ' [WorkNo, Category, Minutes, RowIndex]
+        
+        ' Œ`®Fì”Ô + ƒ^ƒu + ì‹ÆƒR[ƒh + ƒ^ƒu + ƒ^ƒu + ŠÔ•\¦•¶š—ñ + ‰üs
+        ' d—vFŠÔ‚Æì‹ÆƒR[ƒh‚ÌŠÔ‚É1‚Â—]•ª‚Èƒ^ƒu‚ğ‘}“üiExcel“\‚è•t‚¯‚Ì‘ÌÙ’²®j
+        sb = sb & CStr(v(1)) & vbTab & CStr(v(2)) & vbTab & vbTab & _
+                 CStr(wsData.Cells(CLng(v(4)), COL_TIME).text) & vbCrLf
+    Next
+    
+    ' === ƒNƒŠƒbƒvƒ{[ƒh‚ÉƒRƒs[Às ===
+    If Len(sb) > 0 Then CopyTextToClipboardSafe sb
 End Sub
 
 '===============================================================================
-' ãƒ¦ãƒ¼ãƒ†ã‚£ãƒªãƒ†ã‚£
+' yˆÀ‘S‚ÈƒNƒŠƒbƒvƒ{[ƒhƒRƒs[z
+' Forms.DataObject‚ğ—Dæ‚µA¸”s‚ÍWinAPI‚ÉƒtƒH[ƒ‹ƒoƒbƒN
+'===============================================================================
+Private Sub CopyTextToClipboardSafe(ByVal textToCopy As String)
+    On Error GoTo APIFallback
+    
+    ' === •û–@1FForms.DataObject‚ğg—piQÆİ’è•s—vj ===
+    Dim dataObject As Object
+    Set dataObject = CreateObject("Forms.DataObject")  ' –³‚¢ŠÂ‹«‚à‚ ‚é
+    dataObject.SetText textToCopy
+    dataObject.PutInClipboard
+    Exit Sub
+
+APIFallback:
+    ' === •û–@2FWinAPI’¼ÚŒÄ‚Ño‚µiƒtƒH[ƒ‹ƒoƒbƒNj ===
+    CopyTextToClipboardWinAPI textToCopy
+End Sub
+
+'===============================================================================
+' yWinAPIƒNƒŠƒbƒvƒ{[ƒhƒRƒs[z
+' Windows API‚ğ’¼Úg—p‚µ‚½ƒNƒŠƒbƒvƒ{[ƒh‚Ö‚ÌƒeƒLƒXƒgƒRƒs[
+'===============================================================================
+Private Sub CopyTextToClipboardWinAPI(ByVal textToCopy As String)
+    ' === •Ï”éŒ¾i64/32ƒrƒbƒg‘Î‰j ===
+#If VBA7 Then
+    Dim hGlobalMemory As LongPtr, lpGlobalMemory As LongPtr
+#Else
+    Dim hGlobalMemory As Long, lpGlobalMemory As Long
+#End If
+    Dim bytesNeeded As Long             ' •K—vƒƒ‚ƒŠƒTƒCƒY
+    Dim retryCount As Long              ' ƒŠƒgƒ‰ƒCƒJƒEƒ“ƒ^
+
+    ' === ‹ó•¶š—ñƒ`ƒFƒbƒN ===
+    If Len(textToCopy) = 0 Then Exit Sub
+    
+    ' === Unicode•¶š—ñ—pƒƒ‚ƒŠŠm•Û ===
+    bytesNeeded = (Len(textToCopy) + 1) * 2  ' Unicode = 2ƒoƒCƒg/•¶š + I’[•¶š
+    hGlobalMemory = GlobalAlloc(GMEM_MOVEABLE, bytesNeeded)
+    If hGlobalMemory = 0 Then Exit Sub
+
+    ' === ƒƒ‚ƒŠƒƒbƒN‚Æ•¶š—ñƒRƒs[ ===
+    lpGlobalMemory = GlobalLock(hGlobalMemory)
+    If lpGlobalMemory <> 0 Then
+        lstrcpyW lpGlobalMemory, StrPtr(textToCopy)  ' Unicode•¶š—ñƒRƒs[
+        GlobalUnlock hGlobalMemory
+
+        ' === ƒNƒŠƒbƒvƒ{[ƒh‘€ìiƒŠƒgƒ‰ƒC•t‚«j ===
+        For retryCount = 1 To MAX_RETRY_CLIPBOARD
+            If OpenClipboard(0) <> 0 Then Exit For  ' ƒNƒŠƒbƒvƒ{[ƒhæ“¾¬Œ÷
+            DoEvents  ' ‘¼‚Ìˆ—‚É§Œä‚ğ“n‚µ‚Ä‚©‚çƒŠƒgƒ‰ƒC
+        Next retryCount
+
+        If retryCount <= MAX_RETRY_CLIPBOARD Then
+            ' ƒNƒŠƒbƒvƒ{[ƒhæ“¾¬Œ÷‚Ìˆ—
+            EmptyClipboard
+            If SetClipboardData(CF_UNICODETEXT, hGlobalMemory) = 0 Then
+                GlobalFree hGlobalMemory  ' ¸”s‚Íƒƒ‚ƒŠ‰ğ•ú
+            End If
+            CloseClipboard
+        Else
+            ' ƒNƒŠƒbƒvƒ{[ƒhæ“¾¸”s‚Íƒƒ‚ƒŠ‰ğ•ú
+            GlobalFree hGlobalMemory
+        End If
+    Else
+        ' ƒƒ‚ƒŠƒƒbƒN¸”s‚Íƒƒ‚ƒŠ‰ğ•ú
+        GlobalFree hGlobalMemory
+    End If
+End Sub
+
+'===============================================================================
+' yƒ†[ƒeƒBƒŠƒeƒBŠÖ”ŒQz
+' ŠÔ•ÏŠ·A•¶š—ñˆ—AŒŸõ‚È‚Ç‚Ì”Ä—p‹@”\
+'===============================================================================
+
+'===============================================================================
+' yŠg’£ŠÔ•ÏŠ·z
+' —lX‚ÈŒ`®‚ÌŠÔƒf[ƒ^‚ğ•ª”‚É“ˆê•ÏŠ·
+' ‘Î‰Œ`®FDateŒ^AƒVƒŠƒAƒ‹’lAHHMMŒ`®i®”E•¶š—ñj
 '===============================================================================
 Private Function ConvertToMinutesEx(ByVal timeValue As Variant) As Double
-Â  Â  Dim s As String
-Â  Â  ConvertToMinutesEx = 0
-Â  Â  If IsEmpty(timeValue) Then Exit Function
+    Dim s As String
+    ConvertToMinutesEx = 0  ' ƒfƒtƒHƒ‹ƒg’l
+    
+    ' === ‹ó’lƒ`ƒFƒbƒN ===
+    If IsEmpty(timeValue) Then Exit Function
 
-Â  Â  If IsDate(timeValue) Then
-Â  Â  Â  Â  ConvertToMinutesEx = CDbl(CDate(timeValue)) * MINUTES_PER_DAY
-Â  Â  Â  Â  Exit Function
-Â  Â  End If
+    ' === DateŒ^‚Ìê‡ ===
+    If IsDate(timeValue) Then
+        ConvertToMinutesEx = CDbl(CDate(timeValue)) * MINUTES_PER_DAY
+        Exit Function
+    End If
 
-Â  Â  If IsNumeric(timeValue) Then
-Â  Â  Â  Â  If InStr(1, CStr(timeValue), ".") > 0 Then
-Â  Â  Â  Â  Â  Â  ConvertToMinutesEx = CDbl(timeValue) * MINUTES_PER_DAYÂ  Â ' ã‚·ãƒªã‚¢ãƒ«
-Â  Â  Â  Â  Else
-Â  Â  Â  Â  Â  Â  ConvertToMinutesEx = ParseHHMMInteger(CLng(timeValue))Â  Â ' HHMM
-Â  Â  Â  Â  End If
-Â  Â  Â  Â  Exit Function
-Â  Â  End If
-
-Â  Â  s = Trim$(CStr(timeValue))
-Â  Â  If InStr(s, ":") > 0 Then
-Â  Â  Â  Â  ConvertToMinutesEx = ParseHHMMString(s)
-Â  Â  ElseIf IsNumeric(s) Then
-Â  Â  Â  Â  ConvertToMinutesEx = ParseHHMMInteger(CLng(Val(s)))
-Â  Â  End If
-End Function
-
-Private Function ParseHHMMInteger(ByVal hhmmValue As Long) As Double
-Â  Â  Dim hours As Long, minutes As Long, t As String
-Â  Â  ParseHHMMInteger = 0
-Â  Â  If hhmmValue < 0 Then Exit Function
-Â  Â  t = CStr(hhmmValue)
-Â  Â  Select Case Len(t)
-Â  Â  Â  Â  Case 1, 2
-Â  Â  Â  Â  Â  Â  minutes = hhmmValue: hours = 0
-Â  Â  Â  Â  Case 3, 4
-Â  Â  Â  Â  Â  Â  hours = CLng(Left$(t, Len(t) - 2))
-Â  Â  Â  Â  Â  Â  minutes = CLng(Right$(t, 2))
-Â  Â  Â  Â  Case Else
-Â  Â  Â  Â  Â  Â  Exit Function
-Â  Â  End Select
-Â  Â  If minutes >= 0 And minutes < MAX_MINUTES_PER_HOUR Then
-Â  Â  Â  Â  ParseHHMMInteger = hours * MINUTES_PER_HOUR + minutes
-Â  Â  End If
-End Function
-
-Private Function ParseHHMMString(ByVal timeString As String) As Double
-Â  Â  Dim parts() As String, h As Long, m As Long
-Â  Â  ParseHHMMString = 0
-Â  Â  parts = Split(timeString, ":")
-Â  Â  If UBound(parts) = 1 Then
-Â  Â  Â  Â  If IsNumeric(parts(0)) And IsNumeric(parts(1)) Then
-Â  Â  Â  Â  Â  Â  h = CLng(parts(0)): m = CLng(parts(1))
-Â  Â  Â  Â  Â  Â  If m >= 0 And m < MAX_MINUTES_PER_HOUR Then
-Â  Â  Â  Â  Â  Â  Â  Â  ParseHHMMString = h * MINUTES_PER_HOUR + m
-Â  Â  Â  Â  Â  Â  End If
-Â  Â  Â  Â  End If
-Â  Â  End If
-End Function
-
-Private Function MinutesToSerial(ByVal totalMinutes As Double) As Double
-Â  Â  MinutesToSerial = totalMinutes / MINUTES_PER_DAY
-End Function
-
-Private Function MinutesToHHMMString(ByVal totalMinutes As Double) As String
-Â  Â  Dim h As Long, m As Long
-Â  Â  If totalMinutes <= 0 Then
-Â  Â  Â  Â  MinutesToHHMMString = "0:00": Exit Function
-Â  Â  End If
-Â  Â  h = Int(totalMinutes / MINUTES_PER_HOUR)
-Â  Â  m = Round(totalMinutes - h * MINUTES_PER_HOUR, 0)
-Â  Â  If m = MAX_MINUTES_PER_HOUR Then h = h + 1: m = 0
-Â  Â  MinutesToHHMMString = Format$(h, "0") & ":" & Format$(m, "00")
-End Function
-
-Private Function SerialToHHMMString(ByVal serialValue As Double) As String
-Â  Â  SerialToHHMMString = MinutesToHHMMString(serialValue * MINUTES_PER_DAY)
-End Function
-
-Private Function FindMatchingDateRow(ByRef wsMonthly As Worksheet, ByVal targetDate As Date) As Long
-Â  Â  Dim lastRow As Long, r As Long, d As Date
-Â  Â  FindMatchingDateRow = 0
-Â  Â  lastRow = wsMonthly.Cells(wsMonthly.rows.Count, COL_DATE).End(xlUp).Row
-Â  Â  If lastRow < MONTHLY_DATA_START_ROW Then Exit Function
-Â  Â  For r = MONTHLY_DATA_START_ROW To lastRow
-Â  Â  Â  Â  If IsDate(wsMonthly.Cells(r, COL_DATE).value) Then
-Â  Â  Â  Â  Â  Â  d = CDate(wsMonthly.Cells(r, COL_DATE).value)
-Â  Â  Â  Â  Â  Â  If Int(d) = Int(targetDate) Then
-Â  Â  Â  Â  Â  Â  Â  Â  FindMatchingDateRow = r: Exit Function
-Â  Â  Â  Â  Â  Â  End If
-Â  Â  Â  Â  End If
-Â  Â  Next
-End Function
-
-Private Sub EnsureMessageColumnHeader(ByRef wsMonthly As Worksheet)
-Â  Â  With wsMonthly.Cells(MONTHLY_HEADER_ROW, COL_MESSAGE)
-Â  Â  Â  Â  If Trim$(CStr(.value)) = "" Then
-Â  Â  Â  Â  Â  Â  .value = "ãƒ¡ãƒƒã‚»ãƒ¼ã‚¸"
-Â  Â  Â  Â  Â  Â  .Font.Bold = True
-Â  Â  Â  Â  End If
-Â  Â  End With
-End Sub
-
-Private Sub AppendMessageToCell(ByRef ws As Worksheet, ByVal message As String)
-    ' ãƒ¡ãƒƒã‚»ãƒ¼ã‚¸ã‚’ãƒ‡ãƒ¼ã‚¿ç™»éŒ²ã‚·ãƒ¼ãƒˆã® J1:M2 ã«æ›¸ãè¾¼ã‚€
-    Const MSG_RANGE As String = "J1:M2"
-    With ws.Range(MSG_RANGE)
-        ' ã‚»ãƒ«ãŒçµåˆã•ã‚Œã¦ã„ãªã‘ã‚Œã°è¨­å®šã‚’é©ç”¨
-        If .MergeCells = False Then
-            Application.DisplayAlerts = False
-            .Merge
-            Application.DisplayAlerts = True
-            .WrapText = True
-            .VerticalAlignment = xlTop
-            .HorizontalAlignment = xlLeft
+    ' === ”’lŒ^‚Ìê‡ ===
+    If IsNumeric(timeValue) Then
+        If InStr(1, CStr(timeValue), ".") > 0 Then
+            ' ¬”“_‚ ‚è ¨ ExcelƒVƒŠƒAƒ‹’l‚Æ‚µ‚Äˆ—
+            ConvertToMinutesEx = CDbl(timeValue) * MINUTES_PER_DAY
+        Else
+            ' ®” ¨ HHMMŒ`®‚Æ‚µ‚Äˆ—
+            ConvertToMinutesEx = ParseHHMMInteger(CLng(timeValue))
         End If
+        Exit Function
+    End If
 
-        ' ãƒ¡ãƒƒã‚»ãƒ¼ã‚¸ã‚’è¿½è¨˜
-Â  Â  Â  Â  If Len(.value) = 0 Then
-Â  Â  Â  Â  Â  Â  .value = message
-Â  Â  Â  Â  Else
-Â  Â  Â  Â  Â  Â  .value = CStr(.value) & MESSAGE_SEPARATOR & message
-Â  Â  Â  Â  End If
-Â  Â  End With
-End Sub
-
-Private Sub ClearMessageArea(ByRef ws As Worksheet)
-    ' ãƒ‡ãƒ¼ã‚¿ç™»éŒ²ã‚·ãƒ¼ãƒˆã®ãƒ¡ãƒƒã‚»ãƒ¼ã‚¸è¡¨ç¤ºã‚¨ãƒªã‚¢ã‚’ã‚¯ãƒªã‚¢ã™ã‚‹
-    Const MSG_RANGE As String = "J1:M2"
-    ws.Range(MSG_RANGE).ClearContents
-End Sub
-
-Private Function NzD(ByVal value As Variant, Optional ByVal defaultValue As Double = 0#) As Double
-Â  Â  On Error Resume Next
-Â  Â  If IsError(value) Or IsEmpty(value) Or IsNull(value) Or value = "" Then
-Â  Â  Â  Â  NzD = defaultValue
-Â  Â  ElseIf IsNumeric(value) Then
-Â  Â  Â  Â  NzD = CDbl(value)
-Â  Â  Else
-Â  Â  Â  Â  NzD = defaultValue
-Â  Â  End If
-Â  Â  On Error GoTo 0
+    ' === •¶š—ñŒ^‚Ìê‡ ===
+    s = Trim$(CStr(timeValue))
+    If InStr(s, ":") > 0 Then
+        ' ƒRƒƒ“‹æØ‚è ¨ H:MMŒ`®‚Æ‚µ‚Äˆ—
+        ConvertToMinutesEx = ParseHHMMString(s)
+    ElseIf IsNumeric(s) Then
+        ' ”’l•¶š—ñ ¨ HHMM®”‚Æ‚µ‚Äˆ—
+        ConvertToMinutesEx = ParseHHMMInteger(CLng(Val(s)))
+    End If
 End Function
 
 '===============================================================================
-' ã‚¢ãƒ—ãƒªã‚±ãƒ¼ã‚·ãƒ§ãƒ³çŠ¶æ…‹ç®¡ç†
+' yHHMM®”‰ğÍz
+' HHMMŒ`®‚Ì®”‚ğ•ª”‚É•ÏŠ·i—áF130 ¨ 90•ªA1030 ¨ 630•ªj
+'===============================================================================
+Private Function ParseHHMMInteger(ByVal hhmmValue As Long) As Double
+    Dim hours As Long, minutes As Long  ' ŠÔE•ª
+    Dim t As String                     ' ”’l•¶š—ñ
+    
+    ParseHHMMInteger = 0  ' ƒfƒtƒHƒ‹ƒg’l
+    If hhmmValue < 0 Then Exit Function  ' •‰”‚Í–³Œø
+    
+    ' === Œ…”‚É‰‚¶‚½ŠÔE•ª‚Ì•ª—£ ===
+    t = CStr(hhmmValue)
+    Select Case Len(t)
+        Case 1, 2
+            ' 1-2Œ…F•ª‚Ì‚İi—áF5 ¨ 0:05, 30 ¨ 0:30j
+            minutes = hhmmValue: hours = 0
+        Case 3, 4
+            ' 3-4Œ…FHHMMŒ`®i—áF130 ¨ 1:30, 1030 ¨ 10:30j
+            hours = CLng(Left$(t, Len(t) - 2))
+            minutes = CLng(Right$(t, 2))
+        Case Else
+            ' 5Œ…ˆÈã‚Í–³Œø
+            Exit Function
+    End Select
+    
+    ' === •ª‚Ì—LŒø«ƒ`ƒFƒbƒNi0-59‚Ì”ÍˆÍj ===
+    If minutes >= 0 And minutes < MAX_MINUTES_PER_HOUR Then
+        ParseHHMMInteger = hours * MINUTES_PER_HOUR + minutes
+    End If
+End Function
+
+'===============================================================================
+' yH:MM•¶š—ñ‰ğÍz
+' uH:MMvŒ`®‚Ì•¶š—ñ‚ğ•ª”‚É•ÏŠ·i—áFu1:30v ¨ 90•ªj
+'===============================================================================
+Private Function ParseHHMMString(ByVal timeString As String) As Double
+    Dim parts() As String               ' ƒRƒƒ“•ªŠ„Œ‹‰Ê
+    Dim h As Long, m As Long           ' ŠÔE•ª
+    
+    ParseHHMMString = 0  ' ƒfƒtƒHƒ‹ƒg’l
+    
+    ' === ƒRƒƒ“‚Å•ªŠ„ ===
+    parts = Split(timeString, ":")
+    If UBound(parts) = 1 Then  ' 2‚Â‚Ì•”•ª‚É•ªŠ„‚³‚ê‚½‚©ƒ`ƒFƒbƒN
+        If IsNumeric(parts(0)) And IsNumeric(parts(1)) Then
+            h = CLng(parts(0)): m = CLng(parts(1))
+            
+            ' •ª‚Ì—LŒø«ƒ`ƒFƒbƒNi0-59‚Ì”ÍˆÍj
+            If m >= 0 And m < MAX_MINUTES_PER_HOUR Then
+                ParseHHMMString = h * MINUTES_PER_HOUR + m
+            End If
+        End If
+    End If
+End Function
+
+'===============================================================================
+' y•ª”¨ƒVƒŠƒAƒ‹’l•ÏŠ·z
+' •ª”‚ğExcel‚ÌŠÔƒVƒŠƒAƒ‹’l‚É•ÏŠ·iExcel“à•”‚Å‚ÌŠÔ•\Œ»j
+'===============================================================================
+Private Function MinutesToSerial(ByVal totalMinutes As Double) As Double
+    MinutesToSerial = totalMinutes / MINUTES_PER_DAY
+End Function
+
+'===============================================================================
+' y•ª”¨H:MM•¶š—ñ•ÏŠ·z
+' •ª”‚ğuH:MMvŒ`®‚Ì•¶š—ñ‚É•ÏŠ·i•\¦—pj
+'===============================================================================
+Private Function MinutesToHHMMString(ByVal totalMinutes As Double) As String
+    Dim h As Long, m As Long           ' ŠÔE•ª
+    
+    ' === 0ˆÈ‰º‚Ìê‡‚Íu0:00v ===
+    If totalMinutes <= 0 Then
+        MinutesToHHMMString = "0:00": Exit Function
+    End If
+    
+    ' === ŠÔE•ª‚ÌŒvZ ===
+    h = Int(totalMinutes / MINUTES_PER_HOUR)         ' ŠÔ•”•ª
+    m = Round(totalMinutes - h * MINUTES_PER_HOUR, 0) ' •ª•”•ªilÌŒÜ“üj
+    
+    ' === •ª‚ª60‚É‚È‚Á‚½ê‡‚ÌŒJ‚èã‚ª‚èˆ— ===
+    If m = MAX_MINUTES_PER_HOUR Then h = h + 1: m = 0
+    
+    ' === ‘®®Œ`‚µ‚Ä•Ô‹p ===
+    MinutesToHHMMString = Format$(h, "0") & ":" & Format$(m, "00")
+End Function
+
+'===============================================================================
+' yƒVƒŠƒAƒ‹’l¨H:MM•¶š—ñ•ÏŠ·z
+' ExcelƒVƒŠƒAƒ‹’l‚ğuH:MMvŒ`®‚Ì•¶š—ñ‚É•ÏŠ·
+'===============================================================================
+Private Function SerialToHHMMString(ByVal serialValue As Double) As String
+    SerialToHHMMString = MinutesToHHMMString(serialValue * MINUTES_PER_DAY)
+End Function
+
+'===============================================================================
+' y“ú•tˆê’vsŒŸõz
+' ŒŸƒV[ƒg‚©‚çw’è“ú•t‚Æˆê’v‚·‚és”Ô†‚ğŒŸõ
+' –ß‚è’lFs”Ô†i0=Œ©‚Â‚©‚ç‚È‚¢j
+'===============================================================================
+Private Function FindMatchingDateRow(ByRef wsMonthly As Worksheet, ByVal targetDate As Date) As Long
+    Dim lastRow As Long, r As Long     ' sƒ‹[ƒv•Ï”
+    Dim d As Date                      ' Šes‚Ì“ú•t
+    
+    FindMatchingDateRow = 0  ' ƒfƒtƒHƒ‹ƒg’l
+    
+    ' === “ú•t—ñ‚ÌÅIsæ“¾ ===
+    lastRow = wsMonthly.Cells(wsMonthly.rows.Count, COL_DATE).End(xlUp).Row
+    If lastRow < MONTHLY_DATA_START_ROW Then Exit Function  ' ƒf[ƒ^‚È‚µ
+    
+    ' === Šes‚Ì“ú•t‚ğƒ`ƒFƒbƒN ===
+    For r = MONTHLY_DATA_START_ROW To lastRow
+        If IsDate(wsMonthly.Cells(r, COL_DATE).value) Then
+            d = CDate(wsMonthly.Cells(r, COL_DATE).value)
+            ' “ú•t•”•ª‚Ì‚İ”äŠriŠÔ‚Í–³‹j
+            If Int(d) = Int(targetDate) Then
+                FindMatchingDateRow = r: Exit Function  ' ˆê’v‚·‚és‚ªŒ©‚Â‚©‚Á‚½
+            End If
+        End If
+    Next
+End Function
+
+'===============================================================================
+' yƒƒbƒZ[ƒW—ñƒwƒbƒ_Šm•Ûz
+' ŒŸƒV[ƒg‚ÌƒƒbƒZ[ƒW—ñiA—ñj‚Éƒwƒbƒ_‚ªİ’è‚³‚ê‚Ä‚¢‚é‚±‚Æ‚ğŠm”FEİ’è
+'===============================================================================
+Private Sub EnsureMessageColumnHeader(ByRef wsMonthly As Worksheet)
+    With wsMonthly.Cells(MONTHLY_HEADER_ROW, COL_MESSAGE)
+        ' ƒwƒbƒ_‚ª‹ó‚Ìê‡‚Ì‚İİ’è
+        If Trim$(CStr(.value)) = "" Then
+            .value = "ƒƒbƒZ[ƒW"
+            .Font.Bold = True  ' ‘¾š‚Å‹­’²
+        End If
+    End With
+End Sub
+
+'===============================================================================
+' yƒƒbƒZ[ƒWƒZƒ‹’Ç‹Lz
+' w’ès‚ÌƒƒbƒZ[ƒW—ñ‚ÉƒƒbƒZ[ƒW‚ğ’Ç‹LiŠù‘¶“à—e‚ª‚ ‚éê‡‚Í‰üs‚Å‹æØ‚èj
+'===============================================================================
+Private Sub AppendMessageToCell(ByRef wsMonthly As Worksheet, ByVal rowNum As Long, ByVal message As String)
+    With wsMonthly.Cells(rowNum, COL_MESSAGE)
+        If Len(.value) = 0 Then
+            ' ‰‰ñƒƒbƒZ[ƒW
+            .value = message
+        Else
+            ' Šù‘¶ƒƒbƒZ[ƒW‚É’Ç‹Li‰üs‹æØ‚èj
+            .value = CStr(.value) & MESSAGE_SEPARATOR & message
+        End If
+    End With
+End Sub
+
+'===============================================================================
+' yNull’lˆÀ‘S”’l•ÏŠ·z
+' Variant’l‚ğˆÀ‘S‚ÉDoubleŒ^‚É•ÏŠ·iƒGƒ‰[E‹ó’l‚ÍƒfƒtƒHƒ‹ƒg’lj
+'===============================================================================
+Private Function NzD(ByVal value As Variant, Optional ByVal defaultValue As Double = 0#) As Double
+    On Error Resume Next
+    
+    ' === Šeí–³Œø’l‚Ìƒ`ƒFƒbƒN ===
+    If IsError(value) Or IsEmpty(value) Or IsNull(value) Or value = "" Then
+        NzD = defaultValue
+    ElseIf IsNumeric(value) Then
+        NzD = CDbl(value)  ' ”’l•ÏŠ·
+    Else
+        NzD = defaultValue  ' •ÏŠ·•s‰Â‚ÍƒfƒtƒHƒ‹ƒg
+    End If
+    
+    On Error GoTo 0
+End Function
+
+'===============================================================================
+' yŒŸƒV[ƒgƒGƒ‰[•\¦ƒNƒŠƒAz
+' ˆ—ŠJn‚ÉŒŸƒV[ƒg‚ÌƒGƒ‰[•\¦ƒZƒ‹iI1j‚ğƒNƒŠƒA
+'===============================================================================
+Private Sub ClearErrorCellOnMonthlySheet()
+    On Error Resume Next
+    Dim ws As Worksheet
+    Set ws = ThisWorkbook.Sheets(MONTHLY_SHEET_NAME)
+    If Not ws Is Nothing Then
+        ws.Range("I1").ClearContents  ' “à—eƒNƒŠƒA
+        ws.Range("I1").WrapText = True ' ©“®Ü‚è•Ô‚µ—LŒø
+    End If
+    On Error GoTo 0
+End Sub
+
+'===============================================================================
+' yŒŸƒV[ƒgƒGƒ‰[•ñz
+' ƒGƒ‰[”­¶‚ÉƒGƒ‰[ƒƒbƒZ[ƒW‚ğŒŸƒV[ƒg‚Ìw’èƒZƒ‹iI1j‚É•\¦
+'===============================================================================
+Private Sub ReportErrorToMonthlySheet(ByVal message As String)
+    On Error Resume Next
+    Dim ws As Worksheet
+    Set ws = ThisWorkbook.Sheets(MONTHLY_SHEET_NAME)
+    If Not ws Is Nothing Then
+        With ws.Range("I1")
+            .value = message           ' ƒGƒ‰[ƒƒbƒZ[ƒWİ’è
+            .WrapText = True          ' ©“®Ü‚è•Ô‚µ‚ÅŒ©‚â‚·‚­•\¦
+        End With
+    End If
+    On Error GoTo 0
+End Sub
+
+'===============================================================================
+' yƒAƒvƒŠƒP[ƒVƒ‡ƒ“ó‘ÔŠÇ—z
+' Excelˆ—‚‘¬‰»‚Ì‚½‚ß‚Ìó‘Ô•Û‘¶Eİ’èE•œŒ³
+'===============================================================================
+
+'===============================================================================
+' yƒAƒvƒŠƒP[ƒVƒ‡ƒ“ó‘Ô•Û‘¶E‚‘¬‰»İ’èz
+' Œ»İ‚Ìİ’è‚ğ•Û‘¶‚µ‚Äˆ—‚‘¬‰»‚Ì‚½‚ß‚Ìİ’è‚É•ÏX
 '===============================================================================
 Private Sub SaveAndSetApplicationState(ByRef prevState As ApplicationState)
-Â  Â  With prevState
-Â  Â  Â  Â  .ScreenUpdating = Application.ScreenUpdating
-Â  Â  Â  Â  .EnableEvents = Application.EnableEvents
-Â  Â  Â  Â  .Calculation = Application.Calculation
-Â  Â  End With
-Â  Â  With Application
-Â  Â  Â  Â  .ScreenUpdating = False
-Â  Â  Â  Â  .EnableEvents = False
-Â  Â  Â  Â  .Calculation = xlCalculationManual
-Â  Â  End With
-End Sub
-
-Private Sub RestoreApplicationState(ByRef prevState As ApplicationState)
-Â  Â  With Application
-Â  Â  Â  Â  .Calculation = prevState.Calculation
-Â  Â  Â  Â  .EnableEvents = prevState.EnableEvents
-Â  Â  Â  Â  .ScreenUpdating = prevState.ScreenUpdating
-Â  Â  End With
+    ' === Œ»İ‚Ìó‘Ô‚ğ•Û‘¶ ===
+    With prevState
+        .ScreenUpdating = Application.ScreenUpdating  ' ‰æ–ÊXVó‘Ô
+        .EnableEvents = Application.EnableEvents      ' ƒCƒxƒ“ƒg—LŒøó‘Ô
+        .Calculation = Application.Calculation        ' ŒvZƒ‚[ƒh
+    End With
+    
+    ' === ‚‘¬‰»‚Ì‚½‚ß‚Ìİ’è•ÏX ===
+    With Application
+        .ScreenUpdating = False              ' ‰æ–ÊXV’â~i•`‰æˆ—‚ğÈ—ªj
+        .EnableEvents = False               ' ƒCƒxƒ“ƒgˆ—’â~i•ÏXƒCƒxƒ“ƒg“™‚ğ–³Œø‰»j
+        .Calculation = xlCalculationManual  ' ©“®ŒvZ’â~i”®ÄŒvZ‚ğ—}§j
+    End With
 End Sub
 
 '===============================================================================
-' ã‚·ãƒ¼ãƒˆä¿è­·ç®¡ç†
+' yƒAƒvƒŠƒP[ƒVƒ‡ƒ“ó‘Ô•œŒ³z
+' •Û‘¶‚µ‚Ä‚¢‚½Œ³‚Ìİ’è‚É•œŒ³
+'===============================================================================
+Private Sub RestoreApplicationState(ByRef prevState As ApplicationState)
+    With Application
+        .Calculation = prevState.Calculation        ' ŒvZƒ‚[ƒh•œŒ³
+        .EnableEvents = prevState.EnableEvents      ' ƒCƒxƒ“ƒgˆ—•œŒ³
+        .ScreenUpdating = prevState.ScreenUpdating  ' ‰æ–ÊXV•œŒ³iÅŒã‚ÉÀsj
+    End With
+End Sub
+
+'===============================================================================
+' yƒV[ƒg•ÛŒìŠÇ—z
+' ŒŸƒV[ƒg‚Ì•ÛŒìó‘Ô‚ğ“KØ‚ÉŠÇ—i‰ğœ¨ˆ—¨•œŒ³j
+'===============================================================================
+
+'===============================================================================
+' yƒV[ƒg•ÛŒì‰ğœi•K—vjz
+' ƒV[ƒg‚ª•ÛŒì‚³‚ê‚Ä‚¢‚éê‡‚ÌˆÀ‘S‚È‰ğœˆ—
+' ƒpƒXƒ[ƒh‚ª•K—v‚Èê‡‚Íƒ†[ƒU[‚É“ü—Í‚ğ‹‚ß‚é
 '===============================================================================
 Private Function UnprotectSheetIfNeeded(ByRef ws As Worksheet, ByRef protInfo As SheetProtectionInfo) As Boolean
-Â  Â  protInfo.IsProtected = ws.ProtectContents
-Â  Â  protInfo.Password = ""
+    ' === Œ»İ‚Ì•ÛŒìó‘Ô‚ğ‹L˜^ ===
+    protInfo.IsProtected = ws.ProtectContents
+    protInfo.Password = ""
 
-Â  Â  If Not protInfo.IsProtected Then
-Â  Â  Â  Â  UnprotectSheetIfNeeded = True
-Â  Â  Â  Â  Exit Function
-Â  Â  End If
+    ' === •ÛŒì‚³‚ê‚Ä‚¢‚È‚¢ê‡‚Í‰½‚à‚µ‚È‚¢ ===
+    If Not protInfo.IsProtected Then
+        UnprotectSheetIfNeeded = True
+        Exit Function
+    End If
 
-Â  Â  On Error Resume Next
-Â  Â  ws.Unprotect ""
-Â  Â  If Err.Number = 0 Then
-Â  Â  Â  Â  UnprotectSheetIfNeeded = True
-Â  Â  Â  Â  protInfo.Password = ""
-Â  Â  Â  Â  On Error GoTo 0
-Â  Â  Â  Â  Exit Function
-Â  Â  End If
+    ' === ƒpƒXƒ[ƒh‚È‚µ•ÛŒì‰ğœ‚Ìs ===
+    On Error Resume Next
+    ws.Unprotect ""  ' ‹óƒpƒXƒ[ƒh‚Å‰ğœs
+    If Err.Number = 0 Then
+        ' ‰ğœ¬Œ÷
+        UnprotectSheetIfNeeded = True
+        protInfo.Password = ""
+        On Error GoTo 0
+        Exit Function
+    End If
 
-Â  Â  Err.Clear
-Â  Â  protInfo.Password = InputBox("ã‚·ãƒ¼ãƒˆã€" & ws.Name & "ã€ã®ãƒ‘ã‚¹ãƒ¯ãƒ¼ãƒ‰ã‚’å…¥åŠ›ã—ã¦ãã ã•ã„ã€‚", "ä¿è­·è§£é™¤")
-Â  Â  If protInfo.Password = "" Then
-Â  Â  Â  Â  UnprotectSheetIfNeeded = False
-Â  Â  Â  Â  On Error GoTo 0
-Â  Â  Â  Â  Exit Function
-Â  Â  End If
+    ' === ƒpƒXƒ[ƒh“ü—Í‚É‚æ‚é•ÛŒì‰ğœ ===
+    Err.Clear
+    protInfo.Password = InputBox("ƒV[ƒgw" & ws.Name & "x‚ÌƒpƒXƒ[ƒh‚ğ“ü—Í‚µ‚Ä‚­‚¾‚³‚¢B", "•ÛŒì‰ğœ")
+    
+    ' ƒ†[ƒU[‚ªƒLƒƒƒ“ƒZƒ‹‚µ‚½ê‡
+    If protInfo.Password = "" Then
+        UnprotectSheetIfNeeded = False
+        On Error GoTo 0
+        Exit Function
+    End If
 
-Â  Â  ws.Unprotect protInfo.Password
-Â  Â  UnprotectSheetIfNeeded = (Err.Number = 0)
-Â  Â  On Error GoTo 0
+    ' ƒpƒXƒ[ƒh‚É‚æ‚é‰ğœs
+    ws.Unprotect protInfo.Password
+    UnprotectSheetIfNeeded = (Err.Number = 0)  ' ƒGƒ‰[‚ª‚È‚¯‚ê‚Î¬Œ÷
+    On Error GoTo 0
 End Function
 
+'===============================================================================
+' yƒV[ƒg•ÛŒì•œŒ³z
+' ˆ—Š®—¹Œã‚ÉŒ³‚Ì•ÛŒìó‘Ô‚ğ•œŒ³
+'===============================================================================
 Private Sub RestoreSheetProtection(ByRef ws As Worksheet, ByRef protInfo As SheetProtectionInfo)
-Â  Â  If protInfo.IsProtected Then
-Â  Â  Â  Â  On Error Resume Next
-Â  Â  Â  Â  If protInfo.Password = "" Then
-Â  Â  Â  Â  Â  Â  ws.Protect UserInterfaceOnly:=True
-Â  Â  Â  Â  Else
-Â  Â  Â  Â  Â  Â  ws.Protect Password:=protInfo.Password, UserInterfaceOnly:=True
-Â  Â  Â  Â  End If
-Â  Â  Â  Â  On Error GoTo 0
-Â  Â  End If
+    ' === Œ³X•ÛŒì‚³‚ê‚Ä‚¢‚½ê‡‚Ì‚İ•œŒ³ ===
+    If protInfo.IsProtected Then
+        On Error Resume Next
+        
+        If protInfo.Password = "" Then
+            ' ƒpƒXƒ[ƒh‚È‚µ•ÛŒì
+            ws.Protect UserInterfaceOnly:=True
+        Else
+            ' ƒpƒXƒ[ƒh•t‚«•ÛŒì
+            ws.Protect Password:=protInfo.Password, UserInterfaceOnly:=True
+        End If
+        
+        On Error GoTo 0
+    End If
 End Sub
 
 '===============================================================================
-' ã‚¨ãƒ©ãƒ¼ãƒãƒ³ãƒ‰ãƒªãƒ³ã‚°
+' yƒGƒ‰[ƒnƒ“ƒhƒŠƒ“ƒOz
+' “ˆê‚³‚ê‚½ƒGƒ‰[ˆ—‚Æƒ†[ƒU[ƒtƒŒƒ“ƒhƒŠ[‚ÈƒƒbƒZ[ƒW¶¬
+'===============================================================================
+
+'===============================================================================
+' yƒJƒXƒ^ƒ€ƒGƒ‰[”­¶z
+' “Æ©ƒGƒ‰[ƒR[ƒh‚ÆƒƒbƒZ[ƒW‚ÅƒGƒ‰[‚ğ”­¶‚³‚¹‚é
 '===============================================================================
 Private Sub RaiseCustomError(ByVal errorCode As Long, ByVal description As String)
-Â  Â  Err.Raise errorCode, "TransferDataModule", description
+    Err.Raise errorCode, "TransferDataModule", description
 End Sub
 
+'===============================================================================
+' yƒGƒ‰[Ú×î•ñ¶¬z
+' ƒGƒ‰[”Ô†‚É‰‚¶‚½ƒ†[ƒU[ƒtƒŒƒ“ƒhƒŠ[‚ÈƒGƒ‰[ƒƒbƒZ[ƒW‚ğ¶¬
+'===============================================================================
 Private Function GetErrorDetails(ByVal errNumber As Long, ByVal errDescription As String) As String
-Â  Â  Select Case errNumber
-Â  Â  Â  Â  Case ERR_SHEET_NOT_FOUND
-Â  Â  Â  Â  Â  Â  GetErrorDetails = "å¿…è¦ãªã‚·ãƒ¼ãƒˆãŒè¦‹ã¤ã‹ã‚Šã¾ã›ã‚“: " & errDescription
-Â  Â  Â  Â  Case ERR_INVALID_DATE
-Â  Â  Â  Â  Â  Â  GetErrorDetails = "æ—¥ä»˜ãŒç„¡åŠ¹ã§ã™: " & errDescription
-Â  Â  Â  Â  Case ERR_NO_DATA
-Â  Â  Â  Â  Â  Â  GetErrorDetails = "è»¢è¨˜ã™ã‚‹ãƒ‡ãƒ¼ã‚¿ãŒã‚ã‚Šã¾ã›ã‚“: " & errDescription
-Â  Â  Â  Â  Case ERR_DATE_NOT_FOUND
-Â  Â  Â  Â  Â  Â  GetErrorDetails = "å¯¾è±¡æ—¥ä»˜ãŒæœˆæ¬¡ã‚·ãƒ¼ãƒˆã«è¦‹ã¤ã‹ã‚Šã¾ã›ã‚“: " & errDescription
-Â  Â  Â  Â  Case ERR_PROTECTION_FAILED
-Â  Â  Â  Â  Â  Â  GetErrorDetails = "ã‚·ãƒ¼ãƒˆä¿è­·ã®è§£é™¤ã«å¤±æ•—ã—ã¾ã—ãŸ: " & errDescription
-Â  Â  Â  Â  Case 9 ' Subscript out of range
-Â  Â  Â  Â  Â  Â  GetErrorDetails = FriendlyErrorMessage9(errDescription)
-Â  Â  Â  Â  Case Else
-Â  Â  Â  Â  Â  Â  GetErrorDetails = "äºˆæœŸã—ãªã„ã‚¨ãƒ©ãƒ¼ãŒç™ºç”Ÿã—ã¾ã—ãŸ (ã‚¨ãƒ©ãƒ¼ #" & errNumber & "): " & errDescription
-Â  Â  End Select
-End Function
-
-Private Function FriendlyErrorMessage9(ByVal errDesc As String) As String
-Â  Â  FriendlyErrorMessage9 = _
-Â  Â  Â  Â  "ã‚¨ãƒ©ãƒ¼ #9ï¼ˆã‚¤ãƒ³ãƒ‡ãƒƒã‚¯ã‚¹ãŒæœ‰åŠ¹ç¯„å›²ã«ã‚ã‚Šã¾ã›ã‚“ï¼‰" & vbCrLf & _
-Â  Â  Â  Â  "è€ƒãˆã‚‰ã‚Œã‚‹åŸå› ã¨å¯¾å‡¦:" & vbCrLf & _
-Â  Â  Â  Â  "ãƒ»ã‚·ãƒ¼ãƒˆåã®ç¢ºèªï¼šã€" & DATA_SHEET_NAME & "ã€ã€" & MONTHLY_SHEET_NAME & "ã€ãŒå­˜åœ¨ã™ã‚‹ã‹" & vbCrLf & _
-Â  Â  Â  Â  "ãƒ»ãƒ‡ãƒ¼ã‚¿å½¢å¼ã®ç¢ºèªï¼šåŒºåˆ†ã¨ä½œç•ªãŒæ­£ã—ãå…¥åŠ›ã•ã‚Œã¦ã„ã‚‹ã‹" & vbCrLf & _
-Â  Â  Â  Â  "ãƒ»åˆ—æ§‹é€ ã®ç¢ºèªï¼šå¿…è¦ãªåˆ—ãŒå­˜åœ¨ã—ã€æ­£ã—ã„ä½ç½®ã«ã‚ã‚‹ã‹" & vbCrLf & _
-Â  Â  Â  Â  vbCrLf & "è©³ç´°: " & errDesc
+    Select Case errNumber
+        Case ERR_SHEET_NOT_FOUND
+            ' ƒV[ƒg•s‘¶İƒGƒ‰[
+            GetErrorDetails = "•K—v‚ÈƒV[ƒg‚ªŒ©‚Â‚©‚è‚Ü‚¹‚ñ: " & errDescription
+            
+        Case ERR_INVALID_DATE
+            ' “ú•t–³ŒøƒGƒ‰[
+            GetErrorDetails = "“ú•t‚ª–³Œø‚Å‚·: " & errDescription
+            
+        Case ERR_NO_DATA
+            ' ƒf[ƒ^‚È‚µƒGƒ‰[
+            GetErrorDetails = "“]‹L‚·‚éƒf[ƒ^‚ª‚ ‚è‚Ü‚¹‚ñ: " & errDescription
+            
+        Case ERR_DATE_NOT_FOUND
+            ' ‘ÎÛ“ú•t•s‘¶İƒGƒ‰[
+            GetErrorDetails = "‘ÎÛ“ú•t‚ªŒŸƒV[ƒg‚ÉŒ©‚Â‚©‚è‚Ü‚¹‚ñ: " & errDescription
+            
+        Case ERR_PROTECTION_FAILED
+            ' •ÛŒì‰ğœ¸”sƒGƒ‰[
+            GetErrorDetails = "ƒV[ƒg•ÛŒì‚Ì‰ğœ‚É¸”s‚µ‚Ü‚µ‚½: " & errDescription
+            
+        Case 9 ' Subscript out of range
+            ' ”z—ñEƒRƒŒƒNƒVƒ‡ƒ“”ÍˆÍŠOƒGƒ‰[i“Á‚ÉÚ‚µ‚­à–¾j
+            GetErrorDetails = FriendlyErrorMessage9(errDescription)
+            
+        Case Else
+            ' ‚»‚Ì‘¼‚Ì—\Šú‚µ‚È‚¢ƒGƒ‰[
+            GetErrorDetails = "—\Šú‚µ‚È‚¢ƒGƒ‰[‚ª”­¶‚µ‚Ü‚µ‚½ (ƒGƒ‰[ #" & errNumber & "): " & errDescription
+    End Select
 End Function
 
 '===============================================================================
-' çµæœè¡¨ç¤º
+' yƒGƒ‰[#9Ú×à–¾z
+' Å‚à•p”­‚·‚éƒGƒ‰[#9‚É‘Î‚·‚éÚ×‚Å•ª‚©‚è‚â‚·‚¢à–¾
+'===============================================================================
+Private Function FriendlyErrorMessage9(ByVal errDesc As String) As String
+    FriendlyErrorMessage9 = _
+        "ƒGƒ‰[ #9iƒCƒ“ƒfƒbƒNƒX‚ª—LŒø”ÍˆÍ‚É‚ ‚è‚Ü‚¹‚ñj" & vbCrLf & _
+        "l‚¦‚ç‚ê‚éŒ´ˆö‚Æ‘Îˆ:" & vbCrLf & _
+        "EƒV[ƒg–¼‚ÌŠm”FFw" & DATA_SHEET_NAME & "xw" & MONTHLY_SHEET_NAME & "x‚ª‘¶İ‚·‚é‚©" & vbCrLf & _
+        "Eƒf[ƒ^Œ`®‚ÌŠm”FFì”Ô‚Æì‹Æº°ÄŞ‚ª³‚µ‚­“ü—Í‚³‚ê‚Ä‚¢‚é‚©" & vbCrLf & _
+        "E—ñ\‘¢‚ÌŠm”FF•K—v‚È—ñ‚ª‘¶İ‚µA³‚µ‚¢ˆÊ’u‚É‚ ‚é‚©" & vbCrLf & _
+        vbCrLf & "Ú×: " & errDesc
+End Function
+
+'===============================================================================
+' yŒ‹‰Ê•\¦z
+' ˆ—Š®—¹‚Ìƒ†[ƒU[‚Ö‚ÌŒ‹‰Ê•ñ
+'===============================================================================
+
+'===============================================================================
+' y“]‹LŒ‹‰Ê•\¦z
+' ˆ—Œ‹‰Ê‚ÌÚ×‚ğƒ†[ƒU[‚É•ª‚©‚è‚â‚·‚­•\¦
 '===============================================================================
 Private Sub ShowTransferResults(ByRef result As ProcessResult)
-Â  Â  Dim message As String
-Â  Â  If result.Success Then
-Â  Â  Â  Â  message = "è»¢è¨˜å‡¦ç†ãŒå®Œäº†ã—ã¾ã—ãŸã€‚" & vbCrLf & vbCrLf & _
-Â  Â  Â  Â  Â  Â  Â  Â  Â  "å‡¦ç†ä»¶æ•°: " & result.ProcessedCount & " ä»¶" & vbCrLf
-Â  Â  Â  Â  If result.DuplicateCount > 0 Then
-Â  Â  Â  Â  Â  Â  message = message & "é‡è¤‡æ¤œçŸ¥: " & result.DuplicateCount & " ä»¶ï¼ˆé»„è‰²ãƒã‚¤ãƒ©ã‚¤ãƒˆè¡¨ç¤ºï¼‰" & vbCrLf & _
-                      "è©³ç´°ã¯ãƒ‡ãƒ¼ã‚¿ç™»éŒ²ã‚·ãƒ¼ãƒˆã®ãƒ¡ãƒƒã‚»ãƒ¼ã‚¸æ¬„ã‚’ç¢ºèªã—ã¦ãã ã•ã„ã€‚" & vbCrLf
-Â  Â  Â  Â  End If
-Â  Â  Â  Â  If result.NewColumnsAdded > 0 Then
-Â  Â  Â  Â  Â  Â  message = message & "æ–°è¦åˆ—è¿½åŠ : " & result.NewColumnsAdded & " åˆ—" & vbCrLf
-Â  Â  Â  Â  End If
-Â  Â  Â  Â  If Len(result.Messages) > 0 Then
-Â  Â  Â  Â  Â  Â  message = message & vbCrLf & "ãƒ¡ãƒƒã‚»ãƒ¼ã‚¸:" & vbCrLf & result.Messages
-Â  Â  Â  Â  End If
-Â  Â  Â  Â  MsgBox message, vbInformation, "è»¢è¨˜å®Œäº†"
-Â  Â  Else
-Â  Â  Â  Â  message = "è»¢è¨˜å‡¦ç†ãŒä¸­æ­¢ã•ã‚Œã¾ã—ãŸã€‚"
-Â  Â  Â  Â  If Len(result.Messages) > 0 Then
-Â  Â  Â  Â  Â  Â  message = message & vbCrLf & vbCrLf & result.Messages
-Â  Â  Â  Â  End If
-Â  Â  Â  Â  MsgBox message, vbExclamation, "å‡¦ç†ä¸­æ­¢"
-Â  Â  End If
+    Dim message As String
+    
+    If result.Success Then
+        ' === ¬Œ÷‚ÌƒƒbƒZ[ƒW\¬ ===
+        message = "“]‹Lˆ—‚ªŠ®—¹‚µ‚Ü‚µ‚½B" & vbCrLf & vbCrLf & _
+                  "ˆ—Œ”: " & result.ProcessedCount & " Œ" & vbCrLf
+        
+        ' d•¡ŒŸ’mî•ñiŠY“–‚·‚éê‡‚Ì‚İj
+        If result.DuplicateCount > 0 Then
+            message = message & "d•¡ŒŸ’m: " & result.DuplicateCount & " Œi‰©FƒnƒCƒ‰ƒCƒg•\¦j" & vbCrLf
+        End If
+        
+        ' V‹K—ñ’Ç‰Áî•ñiŠY“–‚·‚éê‡‚Ì‚İj
+        If result.NewColumnsAdded > 0 Then
+            message = message & "V‹K—ñ’Ç‰Á: " & result.NewColumnsAdded & " —ñ" & vbCrLf
+        End If
+        
+        ' ’Ç‰ÁƒƒbƒZ[ƒWi‚ ‚éê‡‚Ì‚İj
+        If Len(result.Messages) > 0 Then
+            message = message & vbCrLf & "ƒƒbƒZ[ƒW:" & vbCrLf & result.Messages
+        End If
+        
+        ' ¬Œ÷ƒ_ƒCƒAƒƒO•\¦
+        MsgBox message, vbInformation, "“]‹LŠ®—¹"
+        
+    Else
+        ' === ’†~E¸”s‚ÌƒƒbƒZ[ƒW ===
+        message = "“]‹Lˆ—‚ª’†~‚³‚ê‚Ü‚µ‚½B"
+        
+        If Len(result.Messages) > 0 Then
+            message = message & vbCrLf & vbCrLf & result.Messages
+        End If
+        
+        ' Œxƒ_ƒCƒAƒƒO•\¦
+        MsgBox message, vbExclamation, "ˆ—’†~"
+    End If
 End Sub
+
+'===============================================================================
+' yƒ‚ƒWƒ…[ƒ‹I—¹z
+' 
+' yg—p•û–@z
+' 1. ‚±‚Ìƒ‚ƒWƒ…[ƒ‹‚ğVBAƒvƒƒWƒFƒNƒg‚ÉƒCƒ“ƒ|[ƒg
+' 2. TransferDataToMonthlySheet() ‚ğÀs
+' 3. •K—v‚É‰‚¶‚Ä’è”ƒZƒNƒVƒ‡ƒ“‚Ìİ’è‚ğŠÂ‹«‚É‡‚í‚¹‚Ä’²®
+' 
+' yƒJƒXƒ^ƒ}ƒCƒYƒ|ƒCƒ“ƒgz
+' EƒV[ƒg–¼FDATA_SHEET_NAME, MONTHLY_SHEET_NAME
+' EƒZƒ‹ˆÊ’uFDATE_CELL_PRIORITY, DATE_CELL_NORMAL
+' Es—ñ”Ô†FŠeí _ROW, _COL ’è”
+' E“®ìİ’èFAUTO_ADD_POLICY, DRY_RUN
+' 
+' y’ˆÓ–€z
+' EExcel 2016ˆÈ~AWindows 11‚Å‚Ì“®ì‚ğ‘z’è
+' EƒV[ƒg•ÛŒì‚ª‚ ‚éê‡‚Í‰ğœƒpƒXƒ[ƒh‚ª•K—v
+' E‘å—Êƒf[ƒ^ˆ—‚Í‰æ–ÊXV’â~‚É‚æ‚è‚‘¬‰»
+'===============================================================================
