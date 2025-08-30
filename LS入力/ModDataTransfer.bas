@@ -1,24 +1,24 @@
-'===============================================================================
-' ���W���[����: ModDataTransfer
+﻿'===============================================================================
+' モジュール名: ModDataTransfer
 '
-' �y�T�v�z      �u�f�[�^�o�^�v�V�[�g����u�����f�[�^�v�V�[�g�ցA���X�̍�Ǝ��ԃf�[�^��
-'               �]�L�E�W�v���邽�߂̋@�\��񋟂��܂��B
-' �y�쐬�z      �uJJ-07�v2025/08
-' �y�Ώۊ��z  Excel 2016+ / Windows
-' �y��v�@�\�z
-' �E�w�肵�����t�̍�ƃf�[�^���A�u��ƃR�[�h�v�Ɓu��ԁv�̑g�ݍ��킹�ŏW�v
-' �E�W�v���ʂ��u�����f�[�^�v�V�[�g�̑Ή�������t�s�E��Ɨ�ɓ]�L
-' �E�N���b�v�{�[�h�ɍ�ƃf�[�^���R�s�[
+' 【概要】      「データ登録」シートから「月次データ」シートへ、日々の作業時間データを
+'               転記・集計するための機能を提供します。
+' 【作成】      「JJ-07」2025/08
+' 【対象環境】  Excel 2016+ / Windows
+' 【主要機能】
+' ・指定した日付の作業データを、「作業コード」と「作番」の組み合わせで集計
+' ・集計結果を「月次データ」シートの対応する日付行・作業列に転記
+' ・クリップボードに作業データをコピー
 '===============================================================================
 Option Explicit
 
 '===============================================================================
-' �yWinAPI�錾�Z�N�V�����z
-' �N���b�v�{�[�h����p��Windows API�֐����`���܂��B
-' ��VBA7 (Office 2010�ȍ~��64bit��) �Ƃ���ȑO��32bit�ł̗����ɑΉ�
+' 【WinAPI宣言セクション】
+' クリップボード操作用のWindows API関数を定義します。
+' ※VBA7 (Office 2010以降の64bit版) とそれ以前の32bit版の両方に対応
 '===============================================================================
 #If VBA7 Then
-    ' --- 64�r�b�g��Office�pAPI�錾 ---
+    ' --- 64ビット版Office用API宣言 ---
     Private Declare PtrSafe Function OpenClipboard Lib "user32" (ByVal hwnd As LongPtr) As Long
     Private Declare PtrSafe Function EmptyClipboard Lib "user32" () As Long
     Private Declare PtrSafe Function CloseClipboard Lib "user32" () As Long
@@ -29,7 +29,7 @@ Option Explicit
     Private Declare PtrSafe Function GlobalFree Lib "kernel32" (ByVal hMem As LongPtr) As LongPtr
     Private Declare PtrSafe Function lstrcpyW Lib "kernel32" (ByVal lpString1 As LongPtr, ByVal lpString2 As LongPtr) As LongPtr
 #Else
-    ' --- 32�r�b�g��Office�pAPI�錾 ---
+    ' --- 32ビット版Office用API宣言 ---
     Private Declare Function OpenClipboard Lib "user32" (ByVal hwnd As Long) As Long
     Private Declare Function EmptyClipboard Lib "user32" () As Long
     Private Declare Function CloseClipboard Lib "user32" () As Long
@@ -41,181 +41,181 @@ Option Explicit
     Private Declare Function lstrcpyW Lib "kernel32" (ByVal lpString1 As Long, ByVal lpString2 As Long) As Long
 #End If
 
-' --- WinAPI�֘A�萔 ---
-Private Const GMEM_MOVEABLE As Long = &H2           ' �������u���b�N���ړ��\�ł��邱�Ƃ������t���O
-Private Const CF_UNICODETEXT As Long = 13           ' �N���b�v�{�[�h�`���FUnicode������
+' --- WinAPI関連定数 ---
+Private Const GMEM_MOVEABLE As Long = &H2           ' メモリブロックが移動可能であることを示すフラグ
+Private Const CF_UNICODETEXT As Long = 13           ' クリップボード形式：Unicode文字列
 
 '===============================================================================
-' �y�萔�錾�Z�N�V�����z
-' ���W���[���S�̂̓���𐧌䂷��萔���`���܂��B
-' ���V�[�g�\���⃌�C�A�E�g���ύX���ꂽ�ꍇ�́A���̃Z�N�V�������C�����Ă��������B
+' 【定数宣言セクション】
+' モジュール全体の動作を制御する定数を定義します。
+' ※シート構成やレイアウトが変更された場合は、このセクションを修正してください。
 '===============================================================================
 
-' --- �V�[�g���萔 ---
-Private Const DATA_SHEET_NAME        As String = "�f�[�^�o�^"    ' �]�L���ƂȂ�f�[�^���̓V�[�g��
-Private Const MONTHLY_SHEET_NAME     As String = "�����f�[�^"    ' �]�L��ƂȂ錎���W�v�V�[�g��
+' --- シート名定数 ---
+Private Const DATA_SHEET_NAME        As String = "データ登録"    ' 転記元となるデータ入力シート名
+Private Const MONTHLY_SHEET_NAME     As String = "月次データ"    ' 転記先となる月次集計シート名
 
-' --- �d�v�Z���ʒu�萔 ---
-Private Const DATE_CELL_PRIORITY As String = "D4"  ' �]�L���t�Z���i�ŗD��ł��̃Z���̓��t���g�p�j
-Private Const DATE_CELL_NORMAL   As String = "D3"  ' �]�L���t�Z���iD4����̏ꍇ�Ɏg�p�j
+' --- 重要セル位置定数 ---
+Private Const DATE_CELL_PRIORITY As String = "D4"  ' 転記日付セル（最優先でこのセルの日付を使用）
+Private Const DATE_CELL_NORMAL   As String = "D3"  ' 転記日付セル（D4が空の場合に使用）
+Private Const ERROR_CELL         As String = "J3"  ' エラーメッセージを表示するセル
 
-' --- �s�E��ԍ��萔�i�f�[�^�o�^�V�[�g�j---
-Private Const DATA_START_ROW     As Long = 8       ' �f�[�^���͔͈͂̊J�n�s
-Private Const COL_WORKNO   As Long = 3   ' C��F���
-Private Const COL_CATEGORY As Long = 4   ' D��F��ƃR�[�h
-Private Const COL_TIME     As Long = 5   ' E��F��Ǝ���
+' --- 行・列番号定数（データ登録シート）---
+Private Const DATA_START_ROW     As Long = 8       ' データ入力範囲の開始行
+Private Const COL_WORKNO   As Long = 3   ' C列：作番
+Private Const COL_CATEGORY As Long = 4   ' D列：作業コード
+Private Const COL_TIME     As Long = 5   ' E列：作業時間
 
-' --- �s�E��ԍ��萔�i�����f�[�^�V�[�g�j---
-Private Const COL_MESSAGE  As Long = 1   ' A��F�������b�Z�[�W�L�^��
-Private Const COL_DATE     As Long = 2   ' B��F���t��
-Private Const MONTHLY_WORKNO_ROW As Long = 8       ' ��Ԃ��L�ڂ���Ă���s
-Private Const MONTHLY_HEADER_ROW As Long = 9       ' ��ƃR�[�h���L�ڂ���Ă���s
-Private Const MONTHLY_DATA_START_ROW As Long = 10  ' �f�[�^�L�^�͈͂̊J�n�s
-Private Const MONTHLY_MIN_COL    As Long = 3       ' �f�[�^�L�^�͈͂̍ŏ���iC��j
+' --- 行・列番号定数（月次データシート）---
+Private Const COL_DATE     As Long = 2   ' B列：日付列
+Private Const MONTHLY_WORKNO_ROW As Long = 10       ' 作番が記載されている行
+Private Const MONTHLY_HEADER_ROW As Long = 11      ' 作業コードが記載されている行
+Private Const MONTHLY_DATA_START_ROW As Long = 11  ' データ記録範囲の開始行
+Private Const MONTHLY_MIN_COL    As Long = 3       ' データ記録範囲の最小列（C列）
 
-' --- ���Ԍv�Z�֘A�萔 ---
-Private Const MINUTES_PER_HOUR   As Double = 60#      ' 1���Ԃ̕��� (60��)
-Private Const MINUTES_PER_DAY    As Double = 1440#    ' 1���̕��� (24���� * 60��)
-Private Const MAX_MINUTES_PER_HOUR As Long = 60       ' 1���Ԃ�����̍ő啪���i�����`���̑Ó����`�F�b�N�p�j
+' --- 時間計算関連定数 ---
+Private Const MINUTES_PER_HOUR   As Double = 60#      ' 1時間の分数 (60分)
+Private Const MINUTES_PER_DAY    As Double = 1440#    ' 1日の分数 (24時間 * 60分)
+Private Const MAX_MINUTES_PER_HOUR As Long = 60       ' 1時間あたりの最大分数（時刻形式の妥当性チェック用）
 
-' --- ����ݒ�E�����萔 ---
-Private Const KEY_SEPARATOR As String = "|"              ' ���������Łu��ƃR�[�h�v�Ɓu��ԁv��A������ۂ̋�؂蕶��
-Private Const MESSAGE_SEPARATOR As String = vbLf         ' ���b�Z�[�W�Z�����ŕ����̃��b�Z�[�W����؂���s����
-Private Const TIME_FORMAT As String = "[hh]:mm"          ' Excel�Z���ɐݒ肷�鎞�ԏ����i24���Ԉȏ�\���Ή��j
-Private Const DATE_FORMAT As String = "yyyy/mm/dd(aaa)"  ' ���b�Z�[�W�\���p�̓��t����
-Private Const PREVIEW_TAB As String = vbTab              ' �m�F�_�C�A���O�̃v���r���[�\���Ŏg�p����^�u����
-Private Const DUP_HIGHLIGHT_COLOR As Long = vbYellow       ' �d���f�[�^�����m�����ۂɃZ����h��Ԃ��F
+' --- 動作設定・書式定数 ---
+Private Const KEY_SEPARATOR As String = "|"              ' 内部処理で「作業コード」と「作番」を連結する際の区切り文字
+Private Const MESSAGE_SEPARATOR As String = vbLf         ' メッセージセル内で複数のメッセージを区切る改行文字
+Private Const TIME_FORMAT As String = "[hh]:mm"          ' Excelセルに設定する時間書式（24時間以上表示対応）
+Private Const DATE_FORMAT As String = "yyyy/mm/dd(aaa)"  ' メッセージ表示用の日付書式
+Private Const PREVIEW_TAB As String = vbTab              ' 確認ダイアログのプレビュー表示で使用するタブ文字
+Private Const DUP_HIGHLIGHT_COLOR As Long = vbYellow       ' 重複データを検知した際にセルを塗りつぶす色
 
-' --- ��ǉ��|���V�[�萔�i�V�K��̒ǉ����@�𐧌�j---
-Private Const AddPolicy_Prompt As Long = 0  ' ���[�U�[�Ɋm�F���Ă�����ǉ�
-Private Const AddPolicy_Auto   As Long = 1  ' �m�F�Ȃ��Ŏ����I�ɗ��ǉ�
-Private Const AddPolicy_Reject As Long = 2  ' �V�K��̒ǉ��������Ȃ�
+' --- 列追加ポリシー定数（新規列の追加方法を制御）---
+Private Const AddPolicy_Prompt As Long = 0  ' ユーザーに確認してから列を追加
+Private Const AddPolicy_Auto   As Long = 1  ' 確認なしで自動的に列を追加
+Private Const AddPolicy_Reject As Long = 2  ' 新規列の追加を許可しない
 
-' --- �J���E�f�o�b�O�p�萔 ---
-Private Const AUTO_ADD_POLICY As Long = AddPolicy_Prompt   ' �ʏ�^�p���̗�ǉ��|���V�[
-Private Const DRY_RUN         As Boolean = False           ' True�ɂ���ƁA���ۂ̏������݂��s��Ȃ��e�X�g���[�h�Ŏ��s
-
-'===============================================================================
-' �y�J�X�^���G���[�萔�Z�N�V�����z
-' ���̃��W���[���ŗL�̃G���[�R�[�h���`���܂��B
-' ��VBA�W���G���[�Ƃ̏Փ˂�����邽�߁AvbObjectError�ɐ��l�����Z���Ďg�p
-'===============================================================================
-Private Const ERR_SHEET_NOT_FOUND   As Long = vbObjectError + 1  ' �w�肳�ꂽ�V�[�g��������Ȃ��G���[
-Private Const ERR_INVALID_DATE      As Long = vbObjectError + 2  ' �L���ȓ��t���擾�ł��Ȃ��G���[
-Private Const ERR_NO_DATA           As Long = vbObjectError + 3  ' �]�L�Ώۂ̃f�[�^��1�����Ȃ��G���[
-Private Const ERR_DATE_NOT_FOUND    As Long = vbObjectError + 4  ' �]�L����t�������V�[�g�Ɍ�����Ȃ��G���[
-Private Const ERR_PROTECTION_FAILED As Long = vbObjectError + 5  ' �V�[�g�ی�̉����Ɏ��s�����G���[
+' --- 開発・デバッグ用定数 ---
+Private Const AUTO_ADD_POLICY As Long = AddPolicy_Prompt   ' 通常運用時の列追加ポリシー
+Private Const DRY_RUN         As Boolean = False           ' Trueにすると、実際の書き込みを行わないテストモードで実行
 
 '===============================================================================
-' �y�f�[�^�\���iType�錾�Z�N�V�����j�z
-' �����ɕK�v�ȏ����܂Ƃ߂ĊǗ����邽�߂̃J�X�^���f�[�^�^���`���܂��B
+' 【カスタムエラー定数セクション】
+' このモジュール固有のエラーコードを定義します。
+' ※VBA標準エラーとの衝突を避けるため、vbObjectErrorに数値を加算して使用
+'===============================================================================
+Private Const ERR_SHEET_NOT_FOUND   As Long = vbObjectError + 1  ' 指定されたシートが見つからないエラー
+Private Const ERR_INVALID_DATE      As Long = vbObjectError + 2  ' 有効な日付が取得できないエラー
+Private Const ERR_NO_DATA           As Long = vbObjectError + 3  ' 転記対象のデータが1件もないエラー
+Private Const ERR_DATE_NOT_FOUND    As Long = vbObjectError + 4  ' 転記先日付が月次シートに見つからないエラー
+Private Const ERR_PROTECTION_FAILED As Long = vbObjectError + 5  ' シート保護の解除に失敗したエラー
+
+'===============================================================================
+' 【データ構造（Type宣言セクション）】
+' 処理に必要な情報をまとめて管理するためのカスタムデータ型を定義します。
 '===============================================================================
 
-' --- �A�v���P�[�V������ԕۑ��p ---
-' ���}�N�����s�O��Excel�ݒ��ۑ����A������ɕ������邽�߂Ɏg�p
+' --- アプリケーション状態保存用 ---
+' ※マクロ実行前のExcel設定を保存し、処理後に復元するために使用
 Private Type ApplicationState
-    ScreenUpdating As Boolean    ' ��ʍX�V�̏�� (True/False)
-    EnableEvents   As Boolean    ' �C�x���g�����̏�� (True/False)
-    Calculation    As Long       ' �v�Z���[�h�̏�� (xlCalculationAutomatic �Ȃ�)
+    ScreenUpdating As Boolean    ' 画面更新の状態 (True/False)
+    EnableEvents   As Boolean    ' イベント発生の状態 (True/False)
+    Calculation    As Long       ' 計算モードの状態 (xlCalculationAutomatic など)
 End Type
 
-' --- �V�[�g�ی���ۑ��p ---
-' ���V�[�g�ی���ꎞ�I�ɉ������A������Ɍ��̏�Ԃɖ߂����߂Ɏg�p
+' --- シート保護情報保存用 ---
+' ※シート保護を一時的に解除し、処理後に元の状態に戻すために使用
 Private Type SheetProtectionInfo
-    IsProtected As Boolean       ' ���̕ی��� (True/False)
-    Password    As String        ' �����Ɏg�p�����p�X���[�h
+    IsProtected As Boolean       ' 元の保護状態 (True/False)
+    Password    As String        ' 解除に使用したパスワード
 End Type
 
-' --- �]�L�����ݒ�p ---
-' ���]�L�����S�̂ŋ��L����ݒ�����i�[
+' --- 転記処理設定用 ---
+' ※転記処理全体で共有する設定情報を格納
 Private Type TransferConfig
-    targetDate     As Date       ' �]�L�Ώۂ̓��t
-    targetRow      As Long       ' �����V�[�g��̓]�L�Ώۍs�ԍ�
-    DryRun         As Boolean    ' �h���C�������[�h (True/False)
-    AddPolicy      As Long       ' �V�K��̒ǉ��|���V�[
+    targetDate     As Date       ' 転記対象の日付
+    targetRow      As Long       ' 月次シート上の転記対象行番号
+    DryRun         As Boolean    ' ドライランモード (True/False)
+    AddPolicy      As Long       ' 新規列の追加ポリシー
 End Type
 
-' --- �������ʏ��p ---
-' ������������Ƀ��[�U�[�֕\�����錋�ʃT�}���[���i�[
+' --- 処理結果情報用 ---
+' ※処理完了後にユーザーへ表示する結果サマリーを格納
 Private Type ProcessResult
-    ProcessedCount  As Long      ' ����ɏ������ꂽ����
-    DuplicateCount  As Long      ' �d�������m���ꂽ����
-    ErrorCount      As Long      ' �G���[��������������
-    NewColumnsAdded As Long      ' �V�K�ɒǉ����ꂽ��
-    Messages        As String    ' ���[�U�[�ւ̒ʒm���b�Z�[�W
-    Success         As Boolean   ' �����S�̂̐����t���O (True/False)
+    ProcessedCount  As Long      ' 正常に処理された件数
+    DuplicateCount  As Long      ' 重複が検知された件数
+    ErrorCount      As Long      ' エラーが発生した件数
+    NewColumnsAdded As Long      ' 新規に追加された列数
+    Messages        As String    ' ユーザーへの通知メッセージ
+    Success         As Boolean   ' 処理全体の成功フラグ (True/False)
 End Type
 
 '===============================================================================
-' �y���C�������z
-' ���̃��W���[���̃G���g���[�|�C���g�B���[�U�[�����ڎ��s����v���V�[�W���ł��B
+' 【メイン処理】
+' このモジュールのエントリーポイント。ユーザーが直接実行するプロシージャです。
 '===============================================================================
 Public Sub TransferDataToMonthlySheet()
-    ' --- �ϐ��錾 ---
-    Dim prevState As ApplicationState         ' Excel�A�v���P�[�V�����̎��s�O���
-    Dim config As TransferConfig              ' �]�L�����̊e��ݒ�
-    Dim result As ProcessResult               ' �]�L�����̌���
-    Dim protectionInfo As SheetProtectionInfo ' �����V�[�g�̕ی���
-    Dim wsData As Worksheet                   ' �u�f�[�^�o�^�v�V�[�g�I�u�W�F�N�g
-    Dim wsMonthly As Worksheet                ' �u�����f�[�^�v�V�[�g�I�u�W�F�N�g
+    ' --- 変数宣言 ---
+    Dim prevState As ApplicationState         ' Excelアプリケーションの実行前状態
+    Dim config As TransferConfig              ' 転記処理の各種設定
+    Dim result As ProcessResult               ' 転記処理の結果
+    Dim protectionInfo As SheetProtectionInfo ' 月次シートの保護情報
+    Dim wsData As Worksheet                   ' 「データ登録」シートオブジェクト
+    Dim wsMonthly As Worksheet                ' 「月次データ」シートオブジェクト
 
-    ' --- �X�e�b�v1�FExcel��Ԃ̕ۑ��ƍ������ݒ� ---
-    ' ���������̃p�t�H�[�}���X����̂��߁A��ʍX�V�⎩���v�Z���ꎞ�I�ɒ�~
+    ' --- ステップ1：Excel状態の保存と高速化設定 ---
+    ' ※処理中のパフォーマンス向上のため、画面更新や自動計算を一時的に停止
     SaveAndSetApplicationState prevState
 
-    ' --- �G���[�n���h�����O�ݒ� ---
-    ' ���ȍ~�ŃG���[�����������ꍇ�́uErrorHandler�v�Z�N�V�����ɃW�����v
+    ' --- エラーハンドリング設定 ---
+    ' ※以降でエラーが発生した場合は「ErrorHandler」セクションにジャンプ
     On Error GoTo ErrorHandler
 
-    ' --- ���O�����F�O��̃G���[���b�Z�[�W���N���A ---
+    ' --- 事前準備：前回のエラーメッセージをクリア ---
     ClearErrorCellOnMonthlySheet
 
-    ' --- �X�e�b�v2�F�������Ǝ��O���� ---
-    ' ���V�[�g�̑��݊m�F�A���t�̎擾�A�]�L��s�̓���Ȃǂ��s��
+    ' --- ステップ2：初期化と事前検証 ---
+    ' ※シートの存在確認、日付の取得、転記先行の特定などを行う
     If Not InitializeTransferConfig(config, protectionInfo, wsData, wsMonthly) Then
-        GoTo CleanUp ' �������Ɏ��s�����ꍇ�́A�㏈���փX�L�b�v
+        GoTo CleanUp ' 初期化に失敗した場合は、後処理へスキップ
     End If
 
-    ' --- �X�e�b�v3�F���C���̃f�[�^�]�L���������s ---
+    ' --- ステップ3：メインのデータ転記処理を実行 ---
     ExecuteDataTransfer config, wsData, wsMonthly, result
 
-    ' --- �X�e�b�v4�F�������ʂ��_�C�A���O�ŕ\�� ---
+    ' --- ステップ4：処理結果をダイアログで表示 ---
     ShowTransferResults result
 
 CleanUp:
-    ' --- �ŏI�����F�V�[�g�ی��Excel��Ԃ����ɖ߂� ---
-    ' ���G���[���������K�����s�����
+    ' --- 最終処理：シート保護とExcel状態を元に戻す ---
+    ' ※エラー発生時も必ず実行される
     RestoreSheetProtection wsMonthly, protectionInfo
     RestoreApplicationState prevState
     Exit Sub
 
 ErrorHandler:
-    ' --- �G���[�������̏��� ---
+    ' --- エラー発生時の処理 ---
     Dim emsg As String
-    ' �G���[���𕪂���₷�����b�Z�[�W�ɕϊ�
+    ' エラー情報を分かりやすいメッセージに変換
     emsg = GetErrorDetails(Err.Number, Err.description)
-    ' �����V�[�g�̎w��Z���ɃG���[���b�Z�[�W��\��
+    ' 月次シートの指定セルにエラーメッセージを表示
     ReportErrorToMonthlySheet emsg
-    ' ������ �ύX�_�F�G���[���e�����b�Z�[�W�{�b�N�X�ł��\�� ������
-    MsgBox emsg, vbCritical, "�G���["
-    ' �ŏI������
+    ' ★★★ 変更点：エラー内容をメッセージボックスでも表示 ★★★
+    MsgBox emsg, vbCritical, "エラー"
+    ' 最終処理へ
     Resume CleanUp
 End Sub
 
 '===============================================================================
-' �y�������E�ݒ�v���V�[�W���Q�z
-' ���C�������̎��s�ɕK�v�ȏ����ƌ��؂��s���܂��B
+' 【初期化・設定プロシージャ群】
+' メイン処理の実行に必要な準備と検証を行います。
 '===============================================================================
 
 '===============================================================================
-' �y�@�\���z�]�L�����̏������Ɛݒ�
-' �y�T�v�z  �f�[�^�]�L�ɕK�v�Ȋe��ݒ�i�V�[�g�I�u�W�F�N�g�A�Ώۓ��t�A�Ώۍs�Ȃǁj��
-'           ���������A���O���؂��s���܂��B
-' �y�����z  config: ���������ꂽ�ݒ���i�[����TransferConfig�\���� (�o��)
-'           protInfo: �V�[�g�ی�����i�[����SheetProtectionInfo�\���� (�o��)
-'           wsData: �u�f�[�^�o�^�v�V�[�g�I�u�W�F�N�g (�o��)
-'           wsMonthly: �u�����f�[�^�v�V�[�g�I�u�W�F�N�g (�o��)
-' �y�߂�l�zBoolean: �������ɐ��������ꍇ��True�A���s�����ꍇ��False
+' 【機能名】転記処理の初期化と設定
+' 【概要】  データ転記に必要な各種設定（シートオブジェクト、対象日付、対象行など）を
+'           初期化し、事前検証を行います。
+' 【引数】  config: 初期化された設定を格納するTransferConfig構造体 (出力)
+'           protInfo: シート保護情報を格納するSheetProtectionInfo構造体 (出力)
+'           wsData: 「データ登録」シートオブジェクト (出力)
+'           wsMonthly: 「月次データ」シートオブジェクト (出力)
+' 【戻り値】Boolean: 初期化に成功した場合はTrue、失敗した場合はFalse
 '===============================================================================
 Private Function InitializeTransferConfig( _
     ByRef config As TransferConfig, _
@@ -223,135 +223,135 @@ Private Function InitializeTransferConfig( _
     ByRef wsData As Worksheet, _
     ByRef wsMonthly As Worksheet) As Boolean
 
-    ' --- �߂�l�̏����� ---
+    ' --- 戻り値の初期化 ---
     InitializeTransferConfig = False
 
-    ' --- �X�e�b�v1�F���[�N�V�[�g�̎擾�Ƒ��݌��� ---
+    ' --- ステップ1：ワークシートの取得と存在検証 ---
     If Not GetAndValidateWorksheets(wsData, wsMonthly) Then Exit Function
 
-    ' --- �X�e�b�v2�F�����V�[�g�̕ی���ꎞ�I�ɉ��� ---
-    ' ���ی삳��Ă���ꍇ�A�K�v�ɉ����ăp�X���[�h�̓��͂����߂܂�
+    ' --- ステップ2：月次シートの保護を一時的に解除 ---
+    ' ※保護されている場合、必要に応じてパスワードの入力を求めます
     If Not UnprotectSheetIfNeeded(wsMonthly, protInfo) Then Exit Function
 
-    ' --- �X�e�b�v3�F�f�[�^�o�^�V�[�g����]�L�Ώۂ̓��t������ ---
+    ' --- ステップ3：データ登録シートから転記対象の日付を決定 ---
     If Not DetermineTargetDate(wsData, config.targetDate) Then Exit Function
 
-    ' --- �X�e�b�v4�F�����V�[�g����Ώۓ��t�ƈ�v����s������ ---
+    ' --- ステップ4：月次シートから対象日付と一致する行を検索 ---
     config.targetRow = FindMatchingDateRow(wsMonthly, config.targetDate)
     If config.targetRow = 0 Then
-        ' ��v������t��������Ȃ��ꍇ�̓J�X�^���G���[�𔭐�
+        ' 一致する日付が見つからない場合はカスタムエラーを発生
         RaiseCustomError ERR_DATE_NOT_FOUND, Format$(config.targetDate, DATE_FORMAT)
         Exit Function
     End If
 
-    ' --- �X�e�b�v5�F�萔���瓮��ݒ��ǂݍ��� ---
+    ' --- ステップ5：定数から動作設定を読み込み ---
     config.DryRun = DRY_RUN
     config.AddPolicy = AUTO_ADD_POLICY
 
-    ' --- �S�Ă̏��������������� ---
+    ' --- 全ての初期化処理が成功 ---
     InitializeTransferConfig = True
 End Function
 
 '===============================================================================
-' �y�@�\���z���[�N�V�[�g�̎擾�ƌ���
-' �y�T�v�z  �����ɕK�v�ȁu�f�[�^�o�^�v�u�����f�[�^�v�V�[�g���擾���A
-'           ���݂��邩�ǂ������m�F���܂��B
-' �y�����z  wsData: �u�f�[�^�o�^�v�V�[�g�I�u�W�F�N�g (�o��)
-'           wsMonthly: �u�����f�[�^�v�V�[�g�I�u�W�F�N�g (�o��)
-' �y�߂�l�zBoolean: �����̃V�[�g������Ɏ擾�ł����ꍇ��True
+' 【機能名】ワークシートの取得と検証
+' 【概要】  処理に必要な「データ登録」「月次データ」シートを取得し、
+'           存在するかどうかを確認します。
+' 【引数】  wsData: 「データ登録」シートオブジェクト (出力)
+'           wsMonthly: 「月次データ」シートオブジェクト (出力)
+' 【戻り値】Boolean: 両方のシートが正常に取得できた場合はTrue
 '===============================================================================
 Private Function GetAndValidateWorksheets(ByRef wsData As Worksheet, ByRef wsMonthly As Worksheet) As Boolean
     On Error GoTo SheetError
 
-    ' --- ��`���ꂽ�V�[�g���ŃV�[�g�I�u�W�F�N�g���擾 ---
+    ' --- 定義されたシート名でシートオブジェクトを取得 ---
     Set wsData = ThisWorkbook.Sheets(DATA_SHEET_NAME)
     Set wsMonthly = ThisWorkbook.Sheets(MONTHLY_SHEET_NAME)
 
-    ' --- �V�[�g�̊�{�\�������� ---
+    ' --- シートの基本構造を検証 ---
     If Not ValidateSheetStructure(wsData, wsMonthly) Then
         GetAndValidateWorksheets = False
         Exit Function
     End If
 
-    ' --- ����I�� ---
+    ' --- 正常終了 ---
     GetAndValidateWorksheets = True
     Exit Function
 
 SheetError:
-    ' --- �V�[�g�擾�G���[���̏��� ---
-    ' �����݂��Ȃ��V�[�g�����w�肳�ꂽ�ꍇ�ɂ��̃G���[������
-    RaiseCustomError ERR_SHEET_NOT_FOUND, "�V�[�g: " & DATA_SHEET_NAME & ", " & MONTHLY_SHEET_NAME
+    ' --- シート取得エラー時の処理 ---
+    ' ※存在しないシート名が指定された場合にこのエラーが発生
+    RaiseCustomError ERR_SHEET_NOT_FOUND, "シート: " & DATA_SHEET_NAME & ", " & MONTHLY_SHEET_NAME
     GetAndValidateWorksheets = False
 End Function
 
 '===============================================================================
-' �y�@�\���z�V�[�g�\���̌���
-' �y�T�v�z  �e�V�[�g�������̑O��ƂȂ�ŏ����̍\���������Ă��邩�`�F�b�N���܂��B
-' �y�����z  wsData: �u�f�[�^�o�^�v�V�[�g�I�u�W�F�N�g
-'           wsMonthly: �u�����f�[�^�v�V�[�g�I�u�W�F�N�g
-' �y�߂�l�zBoolean: �\�����L���ȏꍇ��True
+' 【機能名】シート構造の検証
+' 【概要】  各シートが処理の前提となる最小限の構造を持っているかチェックします。
+' 【引数】  wsData: 「データ登録」シートオブジェクト
+'           wsMonthly: 「月次データ」シートオブジェクト
+' 【戻り値】Boolean: 構造が有効な場合はTrue
 '===============================================================================
 Private Function ValidateSheetStructure(ByRef wsData As Worksheet, ByRef wsMonthly As Worksheet) As Boolean
-    ' --- �߂�l�̏����� ---
+    ' --- 戻り値の初期化 ---
     ValidateSheetStructure = False
     
-    ' --- �u�f�[�^�o�^�v�V�[�g�̍\���`�F�b�N ---
-    ' ���f�[�^�J�n�s��艺�ɉ��炩�̍�ԃf�[�^�����݂��邩���m�F
+    ' --- 「データ登録」シートの構造チェック ---
+    ' ※データ開始行より下に何らかの作番データが存在するかを確認
     If wsData.Cells(wsData.rows.Count, COL_WORKNO).End(xlUp).Row < DATA_START_ROW Then
         Exit Function
     End If
 
-    ' --- �u�����f�[�^�v�V�[�g�̍\���`�F�b�N ---
-    ' ���w�b�_�s�ɍŏ���iC��j�܂ł̃f�[�^�����݂��邩���m�F
+    ' --- 「月次データ」シートの構造チェック ---
+    ' ※ヘッダ行に最小列（C列）までのデータが存在するかを確認
     If wsMonthly.Cells(MONTHLY_HEADER_ROW, wsMonthly.Columns.Count).End(xlToLeft).Column < MONTHLY_MIN_COL Then
         Exit Function
     End If
 
-    ' --- ���ؐ��� ---
+    ' --- 検証成功 ---
     ValidateSheetStructure = True
 End Function
 
 
 '===============================================================================
-' �y�@�\���z�Ώۓ��t�̌���
-' �y�T�v�z  �u�f�[�^�o�^�v�V�[�g����]�L�Ώۓ����擾���܂��B
-'           �D��Z��(D4)���ŏ��Ɍ��ɍs���A��̏ꍇ�͒ʏ�Z��(D3)�����ɍs���܂��B
-' �y�����z  wsData: �u�f�[�^�o�^�v�V�[�g�I�u�W�F�N�g
-'           targetDate: �擾�������t���i�[����ϐ� (�o��)
-' �y�߂�l�zBoolean: �L���ȓ��t���擾�ł����ꍇ��True
+' 【機能名】対象日付の決定
+' 【概要】  「データ登録」シートから転記対象日を取得します。
+'           優先セル(D4)を最初に見に行き、空の場合は通常セル(D3)を見に行きます。
+' 【引数】  wsData: 「データ登録」シートオブジェクト
+'           targetDate: 取得した日付を格納する変数 (出力)
+' 【戻り値】Boolean: 有効な日付が取得できた場合はTrue
 '===============================================================================
 Private Function DetermineTargetDate(ByRef wsData As Worksheet, ByRef targetDate As Date) As Boolean
-    ' --- �߂�l�̏����� ---
+    ' --- 戻り値の初期化 ---
     DetermineTargetDate = False
 
-    ' --- �D��Z���iD4�j������t�擾�����s ---
+    ' --- 優先セル（D4）から日付取得を試行 ---
     If IsDate(wsData.Range(DATE_CELL_PRIORITY).value) Then
         targetDate = CDate(wsData.Range(DATE_CELL_PRIORITY).value)
         DetermineTargetDate = True
 
-    ' --- �D��Z������̏ꍇ�A�ʏ�Z���iD3�j������t�擾�����s ---
+    ' --- 優先セルが空の場合、通常セル（D3）から日付取得を試行 ---
     ElseIf IsDate(wsData.Range(DATE_CELL_NORMAL).value) Then
         targetDate = CDate(wsData.Range(DATE_CELL_NORMAL).value)
         DetermineTargetDate = True
 
-    ' --- �����̃Z������L���ȓ��t���擾�ł��Ȃ��ꍇ�̓G���[ ---
+    ' --- 両方のセルから有効な日付が取得できない場合はエラー ---
     Else
-        RaiseCustomError ERR_INVALID_DATE, "�Z�� " & DATE_CELL_NORMAL & " �܂��� " & DATE_CELL_PRIORITY
+        RaiseCustomError ERR_INVALID_DATE, "セル " & DATE_CELL_NORMAL & " または " & DATE_CELL_PRIORITY
     End If
 End Function
 
 '===============================================================================
-' �y�f�[�^�]�L�R�A���W�b�N�Q�z
-' �f�[�^�̎��W�A�W�v�A�������݂Ɋւ��钆�S�I�ȏ������s���܂��B
+' 【データ転記コアロジック群】
+' データの収集、集計、書き込みに関する中心的な処理を行います。
 '===============================================================================
 
 '===============================================================================
-' �y�@�\���z�f�[�^�]�L�����̎��s
-' �y�T�v�z  �f�[�^���W�A�W�v�A�v���r���[�A�������݂Ƃ�����A�̓]�L�����𓝊����܂��B
-' �y�����z  config: �]�L�����̐ݒ���
-'           wsData: �u�f�[�^�o�^�v�V�[�g�I�u�W�F�N�g
-'           wsMonthly: �u�����f�[�^�v�V�[�g�I�u�W�F�N�g
-'           result: �������ʂ��i�[����ProcessResult�\���� (�o��)
+' 【機能名】データ転記処理の実行
+' 【概要】  データ収集、集計、プレビュー、書き込みという一連の転記処理を統括します。
+' 【引数】  config: 転記処理の設定情報
+'           wsData: 「データ登録」シートオブジェクト
+'           wsMonthly: 「月次データ」シートオブジェクト
+'           result: 処理結果を格納するProcessResult構造体 (出力)
 '===============================================================================
 Private Sub ExecuteDataTransfer( _
     ByRef config As TransferConfig, _
@@ -359,225 +359,222 @@ Private Sub ExecuteDataTransfer( _
     ByRef wsMonthly As Worksheet, _
     ByRef result As ProcessResult)
 
-    ' --- �ϐ��錾 ---
-    Dim items As collection              ' ���W�f�[�^�F�e�v�f�� Array(WorkNo, Category, Minutes, RowIndex)
-    Dim aggregated As Object             ' �W�v�f�[�^�FScripting.Dictionary (Key="Category|WorkNo", Value=���v����)
-    Dim mapDict As Object                ' ��}�b�s���O�FScripting.Dictionary (Key="Category|WorkNo", Value=��ԍ�)
-    Dim lastCol As Long                  ' �����V�[�g�̍ŏI��ԍ�
+    ' --- 変数宣言 ---
+    Dim items As collection              ' 収集データ：各要素は Array(WorkNo, Category, Minutes, RowIndex)
+    Dim aggregated As Object             ' 集計データ：Scripting.Dictionary (Key="Category|WorkNo", Value=合計分数)
+    Dim mapDict As Object                ' 列マッピング：Scripting.Dictionary (Key="Category|WorkNo", Value=列番号)
+    Dim lastCol As Long                  ' 月次シートの最終列番号
 
-    ' --- �X�e�b�v1�F�u�f�[�^�o�^�v�V�[�g����L���Ȏ��ԃf�[�^�����W ---
+    ' --- ステップ1：「データ登録」シートから有効な時間データを収集 ---
     Set items = CollectTimeDataFromSheet(wsData)
     If items.Count = 0 Then
-        RaiseCustomError ERR_NO_DATA, "�L���Ȏ��ԃf�[�^��������܂���"
+        RaiseCustomError ERR_NO_DATA, "有効な時間データが見つかりません"
         Exit Sub
     End If
 
-    ' --- �X�e�b�v2�F����L�[�i��ƃR�[�h+��ԁj�̃f�[�^���W�v ---
+    ' --- ステップ2：同一キー（作業コード+作番）のデータを集計 ---
     Set aggregated = AggregateTimeData(items)
 
-    ' --- �X�e�b�v3�F�u�����f�[�^�v�V�[�g�̗�\������͂��A�}�b�s���O�����\�z ---
+    ' --- ステップ3：「月次データ」シートの列構成を解析し、マッピング情報を構築 ---
     Set mapDict = CreateObject("Scripting.Dictionary")
     BuildColumnMapping wsMonthly, lastCol, mapDict
 
-    ' --- �X�e�b�v4�F�W�v���ʂ��v���r���[�\�����A���[�U�[�Ɏ��s�m�F�����߂� ---
+    ' --- ステップ4：集計結果をプレビュー表示し、ユーザーに実行確認を求める ---
     If Not ShowPreviewAndConfirm(config.targetDate, aggregated) Then
-        result.Success = False ' ���[�U�[���L�����Z�������ꍇ
+        result.Success = False ' ユーザーがキャンセルした場合
         Exit Sub
     End If
 
-    ' --- �X�e�b�v5�F�h���C�������[�h�̏ꍇ�́A�������݂����ɏI�� ---
+    ' --- ステップ5：ドライランモードの場合は、書き込みせずに終了 ---
     If config.DryRun Then
-        result.Messages = "�h���C���������i���ۂ̏������݂͎��s����܂���ł����j"
+        result.Messages = "ドライラン完了（実際の書き込みは実行されませんでした）"
         result.Success = True
         Exit Sub
     End If
 
-    ' --- �X�e�b�v6�F���W�����f�[�^���N���b�v�{�[�h�ɃR�s�[�i���[�U�[�̍ė��p�̂��߁j ---
+    ' --- ステップ6：収集したデータをクリップボードにコピー（ユーザーの再利用のため） ---
     CopyDataToClipboard items, wsData
 
-    ' --- �X�e�b�v7�F�����V�[�g�̃��b�Z�[�W��w�b�_���m�F�E�ݒ� ---
-    EnsureMessageColumnHeader wsMonthly
-
-    ' --- �X�e�b�v8�F�W�v�f�[�^�������V�[�g�ɏ������� ---
-    ' �����̒��ŁA�d���`�F�b�N���̐V�K�쐬���s����
+    ' --- ステップ7：集計データを月次シートに書き込み ---
+    ' ※この中で、重複チェックや列の新規作成も行われる
     WriteAggregatedDataToSheet config, wsMonthly, aggregated, mapDict, lastCol, result
 
-    ' --- ���������t���O��ݒ� ---
+    ' --- 処理成功フラグを設定 ---
     result.Success = True
 End Sub
 
 '===============================================================================
-' �y�@�\���z���ԃf�[�^�̎��W
-' �y�T�v�z  �u�f�[�^�o�^�v�V�[�g���X�L�������A�L���ȁi�K�{���ڂ����͂���Ă���j
-'           ��Ǝ��ԃf�[�^�����W���܂��B
-' �y�����z  wsData: �u�f�[�^�o�^�v�V�[�g�I�u�W�F�N�g
-' �y�߂�l�zCollection: ���W�����f�[�^�̃R���N�V�����B
-'           �e�v�f�� Array(���, ��ƃR�[�h, ����, ���̍s�ԍ�) �̌`���B
+' 【機能名】時間データの収集
+' 【概要】  「データ登録」シートをスキャンし、有効な（必須項目が入力されている）
+'           作業時間データを収集します。
+' 【引数】  wsData: 「データ登録」シートオブジェクト
+' 【戻り値】Collection: 収集したデータのコレクション。
+'           各要素は Array(作番, 作業コード, 分数, 元の行番号) の形式。
 '===============================================================================
 Private Function CollectTimeDataFromSheet(ByRef wsData As Worksheet) As collection
-    ' --- �ϐ��錾 ---
-    Dim col As New collection           ' ���W���ʂ��i�[����R���N�V����
-    Dim lastRow As Long, r As Long      ' ���[�v�p�̍s�ϐ�
-    Dim workNo As String                ' ���
-    Dim category As String              ' ��ƃR�[�h
-    Dim minutes As Double               ' ��Ǝ��ԁi�����ɕϊ���j
-    Dim arr(1 To 4) As Variant          ' 1�s���̃f�[�^���i�[����z��
+    ' --- 変数宣言 ---
+    Dim col As New collection           ' 収集結果を格納するコレクション
+    Dim lastRow As Long, r As Long      ' ループ用の行変数
+    Dim workNo As String                ' 作番
+    Dim category As String              ' 作業コード
+    Dim minutes As Double               ' 作業時間（分数に変換後）
+    Dim arr(1 To 4) As Variant          ' 1行分のデータを格納する配列
 
-    ' --- �f�[�^�����͂���Ă���ŏI�s���擾 ---
+    ' --- データが入力されている最終行を取得 ---
     lastRow = wsData.Cells(wsData.rows.Count, COL_WORKNO).End(xlUp).Row
 
-    ' --- �f�[�^�J�n�s����ŏI�s�܂Ń��[�v ---
+    ' --- データ開始行から最終行までループ ---
     For r = DATA_START_ROW To lastRow
-        ' --- �e��̒l���擾���A�s�v�ȋ󔒂����� ---
+        ' --- 各列の値を取得し、不要な空白を除去 ---
         workNo = Trim$(CStr(wsData.Cells(r, COL_WORKNO).value))
         category = Trim$(CStr(wsData.Cells(r, COL_CATEGORY).value))
-        minutes = ConvertToMinutesEx(wsData.Cells(r, COL_TIME).value) ' �l�X�Ȏ��Ԍ`���𕪐��ɓ���
+        minutes = ConvertToMinutesEx(wsData.Cells(r, COL_TIME).value) ' 様々な時間形式を分数に統一
 
-        ' --- �L�����`�F�b�N�F��ԁA��ƃR�[�h�����͂���A���Ԃ�0���傫���ꍇ�̂ݑΏ� ---
+        ' --- 有効性チェック：作番、作業コードが入力され、時間が0より大きい場合のみ対象 ---
         If (workNo <> "") And (category <> "") And (minutes > 0) Then
-            ' --- �z��Ƀf�[�^���i�[ ---
+            ' --- 配列にデータを格納 ---
             arr(1) = workNo
             arr(2) = category
             arr(3) = minutes
-            arr(4) = r          ' ���̍s�ԍ���ێ��i�N���b�v�{�[�h�R�s�[�p�j
+            arr(4) = r          ' 元の行番号を保持（クリップボードコピー用）
 
-            ' --- �R���N�V�����ɒǉ� ---
+            ' --- コレクションに追加 ---
             col.Add arr
         End If
     Next
 
-    ' --- ���W���ʂ�Ԃ� ---
+    ' --- 収集結果を返す ---
     Set CollectTimeDataFromSheet = col
 End Function
 
 '===============================================================================
-' �y�@�\���z���ԃf�[�^�̏W�v
-' �y�T�v�z  ���W�����f�[�^���X�g�����ɁA����́u��ƃR�[�h�{��ԁv�����f�[�^��
-'           ���Z�i�W�v�j���܂��B
-' �y�����z  items: ���W���ꂽ�f�[�^�̃R���N�V����
-' �y�߂�l�zObject(Scripting.Dictionary): �W�v���ʂ̃f�B�N�V���i��
-'           (Key="��ƃR�[�h|���", Value=���v����)
+' 【機能名】時間データの集計
+' 【概要】  収集したデータリストを元に、同一の「作業コード＋作番」を持つデータを
+'           合算（集計）します。
+' 【引数】  items: 収集されたデータのコレクション
+' 【戻り値】Object(Scripting.Dictionary): 集計結果のディクショナリ
+'           (Key="作業コード|作番", Value=合計分数)
 '===============================================================================
 Private Function AggregateTimeData(ByRef items As collection) As Object
-    ' --- �ϐ��錾 ---
+    ' --- 変数宣言 ---
     Dim dic As Object: Set dic = CreateObject("Scripting.Dictionary")
-    Dim i As Long                       ' ���[�v�J�E���^
-    Dim key As String                   ' �f�B�N�V���i���̃L�[
-    Dim v As Variant                    ' �R���N�V�����̊e�v�f�i�z��j
+    Dim i As Long                       ' ループカウンタ
+    Dim key As String                   ' ディクショナリのキー
+    Dim v As Variant                    ' コレクションの各要素（配列）
 
-    ' --- ���W�����f�[�^���������[�v ---
+    ' --- 収集したデータ件数分ループ ---
     For i = 1 To items.Count
-        v = items(i) ' �z�� [WorkNo, Category, Minutes, RowIndex] ���擾
+        v = items(i) ' 配列 [WorkNo, Category, Minutes, RowIndex] を取得
 
-        ' --- �L�[���u��ƃR�[�h|��ԁv�̌`���Ő��� ---
+        ' --- キーを「作業コード|作番」の形式で生成 ---
         key = CStr(v(2)) & KEY_SEPARATOR & CStr(v(1))
 
-        ' --- �L�[�̑��݂ɉ����āA���������Z�܂��͐V�K�ǉ� ---
+        ' --- キーの存在に応じて、分数を加算または新規追加 ---
         If dic.Exists(key) Then
-            dic(key) = dic(key) + CDbl(v(3)) ' �����L�[�F���Z
+            dic(key) = dic(key) + CDbl(v(3)) ' 既存キー：加算
         Else
-            dic.Add key, CDbl(v(3))          ' �V�K�L�[�F�ǉ�
+            dic.Add key, CDbl(v(3))          ' 新規キー：追加
         End If
     Next
 
-    ' --- �W�v���ʂ̃f�B�N�V���i����Ԃ� ---
+    ' --- 集計結果のディクショナリを返す ---
     Set AggregateTimeData = dic
 End Function
 
 '===============================================================================
-' �y�@�\���z��}�b�s���O�̍\�z
-' �y�T�v�z  �u�����f�[�^�v�V�[�g�̃w�b�_����͂��A�u��ƃR�[�h�{��ԁv��
-'           ��ԍ��̑Ή��\�i�f�B�N�V���i���j���쐬���܂��B
-' �y�����z  wsMonthly: �u�����f�[�^�v�V�[�g�I�u�W�F�N�g
-'           lastColOut: �ŏI��ԍ����i�[����ϐ� (�o��)
-'           mapDict: �쐬�����}�b�s���O�����i�[����f�B�N�V���i�� (�o��)
+' 【機能名】列マッピングの構築
+' 【概要】  「月次データ」シートのヘッダを解析し、「作業コード＋作番」と
+'           列番号の対応表（ディクショナリ）を作成します。
+' 【引数】  wsMonthly: 「月次データ」シートオブジェクト
+'           lastColOut: 最終列番号を格納する変数 (出力)
+'           mapDict: 作成したマッピング情報を格納するディクショナリ (出力)
 '===============================================================================
 Private Sub BuildColumnMapping(ByRef wsMonthly As Worksheet, ByRef lastColOut As Long, ByRef mapDict As Object)
-    ' --- �ϐ��錾 ---
-    Dim lastCol As Long                 ' �����V�[�g�̍ŏI��ԍ�
-    Dim c As Long                       ' ���[�v�p�̗�ϐ�
-    Dim categoryName As String          ' �w�b�_����ǂݎ������ƃR�[�h��
-    Dim workNoName As String            ' �w�b�_����ǂݎ������Ԗ�
-    Dim key As String                   ' �f�B�N�V���i���p�̃L�[
+    ' --- 変数宣言 ---
+    Dim lastCol As Long                 ' 月次シートの最終列番号
+    Dim c As Long                       ' ループ用の列変数
+    Dim categoryName As String          ' ヘッダから読み取った作業コード名
+    Dim workNoName As String            ' ヘッダから読み取った作番名
+    Dim key As String                   ' ディクショナリ用のキー
 
-    ' --- �f�[�^�����͂���Ă���ŏI����擾 ---
+    ' --- データが入力されている最終列を取得 ---
     lastCol = wsMonthly.Cells(MONTHLY_HEADER_ROW, wsMonthly.Columns.Count).End(xlToLeft).Column
     lastColOut = lastCol
 
-    ' --- �f�[�^�J�n�񂩂�ŏI��܂Ń��[�v ---
+    ' --- データ開始列から最終列までループ ---
     For c = MONTHLY_MIN_COL To lastCol
-        ' --- �w�b�_���i��ƃR�[�h�ƍ�ԁj���擾 ---
+        ' --- ヘッダ情報（作業コードと作番）を取得 ---
         categoryName = Trim$(CStr(wsMonthly.Cells(MONTHLY_HEADER_ROW, c).value))
         workNoName = Trim$(CStr(wsMonthly.Cells(MONTHLY_WORKNO_ROW, c).value))
 
-        ' --- �L���ȗ�̂݃}�b�s���O�ɓo�^ ---
-        ' ����ƃR�[�h����̗�͖�������
+        ' --- 有効な列のみマッピングに登録 ---
+        ' ※作業コードが空の列は無視する
         If categoryName <> "" Then
-            key = categoryName & KEY_SEPARATOR & workNoName ' �L�[����
+            key = categoryName & KEY_SEPARATOR & workNoName ' キー生成
 
             If Not mapDict.Exists(key) Then
-                mapDict.Add key, c ' �f�B�N�V���i���ɃL�[�Ɨ�ԍ���o�^
+                mapDict.Add key, c ' ディクショナリにキーと列番号を登録
             End If
         End If
     Next
 End Sub
 
 '===============================================================================
-' �y�@�\���z�]�L���e�̃v���r���[�\���Ɗm�F
-' �y�T�v�z  �W�v���ʂ𐮌`���ă��b�Z�[�W�{�b�N�X�ɕ\�����A���[�U�[�ɓ]�L��
-'           ���s���邩�ǂ����̍ŏI�m�F�����߂܂��B
-' �y�����z  targetDate: �]�L�Ώۂ̓��t
-'           aggregatedData: �W�v���ʂ̃f�B�N�V���i��
-' �y�߂�l�zBoolean: ���[�U�[���u�͂��v��I�������ꍇ��True�A�u�������v�̏ꍇ��False
+' 【機能名】転記内容のプレビュー表示と確認
+' 【概要】  集計結果を整形してメッセージボックスに表示し、ユーザーに転記を
+'           実行するかどうかの最終確認を求めます。
+' 【引数】  targetDate: 転記対象の日付
+'           aggregatedData: 集計結果のディクショナリ
+' 【戻り値】Boolean: ユーザーが「はい」を選択した場合はTrue、「いいえ」の場合はFalse
 '===============================================================================
 Private Function ShowPreviewAndConfirm(ByVal targetDate As Date, ByRef aggregatedData As Object) As Boolean
-    ' --- �ϐ��錾 ---
-    Dim msg As String                   ' �_�C�A���O�ɕ\�����郁�b�Z�[�W������
-    Dim key As Variant                  ' �f�B�N�V���i���̃L�[�����񂷂邽�߂̕ϐ�
-    Dim n As Long                       ' �\�������J�E���^
-    Dim MAX_LINES As Long: MAX_LINES = 50 ' �v���r���[�ŏڍו\������ő�s��
+    ' --- 変数宣言 ---
+    Dim msg As String                   ' ダイアログに表示するメッセージ文字列
+    Dim key As Variant                  ' ディクショナリのキーを巡回するための変数
+    Dim n As Long                       ' 表示件数カウンタ
+    Dim MAX_LINES As Long: MAX_LINES = 50 ' プレビューで詳細表示する最大行数
 
-    ' --- ���b�Z�[�W�̃w�b�_�������쐬 ---
-    msg = "�ȉ��̓��e�œ]�L���܂��B��낵���ł����H" & vbCrLf & vbCrLf & _
-          "�Ώۓ��t: " & Format$(targetDate, DATE_FORMAT) & vbCrLf & _
+    ' --- メッセージのヘッダ部分を作成 ---
+    msg = "以下の内容で転記します。よろしいですか？" & vbCrLf & vbCrLf & _
+          "対象日付: " & Format$(targetDate, DATE_FORMAT) & vbCrLf & _
           String(50, "-") & vbCrLf & _
-          "���" & PREVIEW_TAB & " | ��ƃR�[�h" & " | ����" & vbCrLf & _
+          "作番" & PREVIEW_TAB & " | 作業コード" & " | 時間" & vbCrLf & _
           String(50, "-") & vbCrLf
 
-    ' --- �W�v�f�[�^�̓��e�����b�Z�[�W�ɒǉ� ---
+    ' --- 集計データの内容をメッセージに追加 ---
     For Each key In aggregatedData.Keys
         n = n + 1
         If n <= MAX_LINES Then
-            ' --- �ő�\���s���܂ł͏ڍׂ�\�� ---
+            ' --- 最大表示行数までは詳細を表示 ---
             Dim parts() As String
-            parts = Split(CStr(key), KEY_SEPARATOR) ' �L�[���u��ƃR�[�h�v�Ɓu��ԁv�ɕ���
+            parts = Split(CStr(key), KEY_SEPARATOR) ' キーを「作業コード」と「作番」に分割
             If UBound(parts) >= 1 Then
-                ' ��ԁA��ƃR�[�h�A���Ԃ��^�u��؂�Œǉ�
+                ' 作番、作業コード、時間をタブ区切りで追加
                 msg = msg & parts(1) & PREVIEW_TAB & " | " & parts(0) & PREVIEW_TAB & _
                       " | " & MinutesToHHMMString(aggregatedData(key)) & vbCrLf
             End If
         Else
-            ' --- �ő�\���s���𒴂����ꍇ�́A�c�茏���̂ݕ\�� ---
-            msg = msg & "...�ق� " & (aggregatedData.Count - MAX_LINES) & " ��" & vbCrLf
+            ' --- 最大表示行数を超えた場合は、残り件数のみ表示 ---
+            msg = msg & "...ほか " & (aggregatedData.Count - MAX_LINES) & " 件" & vbCrLf
             Exit For
         End If
     Next
 
-    ' --- �m�F�_�C�A���O��\�����A���[�U�[�̑I�����ʂ�Ԃ� ---
-    ShowPreviewAndConfirm = (MsgBox(msg, vbYesNo + vbQuestion, "�]�L���e�̊m�F") = vbYes)
+    ' --- 確認ダイアログを表示し、ユーザーの選択結果を返す ---
+    ShowPreviewAndConfirm = (MsgBox(msg, vbYesNo + vbQuestion, "転記内容の確認") = vbYes)
 End Function
 
 
 '===============================================================================
-' �y�@�\���z�W�v�f�[�^�̏�������
-' �y�T�v�z  �W�v���ꂽ�f�[�^�������V�[�g�̓K�؂ȃZ���ɏ������݂܂��B
-'           ���̒��ŁA��̎擾�E�V�K�쐬��d�������̌Ăяo�����s���܂��B
-' �y�����z  config: �]�L�����̐ݒ���
-'           wsMonthly: �u�����f�[�^�v�V�[�g�I�u�W�F�N�g
-'           aggregatedData: �W�v���ʂ̃f�B�N�V���i��
-'           mapDict: ��}�b�s���O���
-'           lastCol: �ŏI��ԍ��i�V�K�쐬���ɍX�V�����\������j
-'           result: �������ʂ̃T�}���[ (�o��)
+' 【機能名】集計データの書き込み
+' 【概要】  集計されたデータを月次シートの適切なセルに書き込みます。
+'           この中で、列の取得・新規作成や重複処理の呼び出しを行います。
+' 【引数】  config: 転記処理の設定情報
+'           wsMonthly: 「月次データ」シートオブジェクト
+'           aggregatedData: 集計結果のディクショナリ
+'           mapDict: 列マッピング情報
+'           lastCol: 最終列番号（新規作成時に更新される可能性あり）
+'           result: 処理結果のサマリー (出力)
 '===============================================================================
 Private Sub WriteAggregatedDataToSheet( _
     ByRef config As TransferConfig, _
@@ -587,26 +584,27 @@ Private Sub WriteAggregatedDataToSheet( _
     ByRef lastCol As Long, _
     ByRef result As ProcessResult)
 
-    ' --- �ϐ��錾 ---
-    Dim key As Variant                  ' �f�B�N�V���i���̃L�[
-    Dim parts() As String               ' �L�[�𕪊��������ʂ̔z�� (0=��ƃR�[�h, 1=���)
-    Dim targetCol As Long               ' �������ݑΏۂ̗�ԍ�
+    ' --- 変数宣言 ---
+    Dim key As Variant                  ' ディクショナリのキー
+    Dim parts() As String               ' キーを分割した結果の配列 (0=作業コード, 1=作番)
+    Dim targetCol As Long               ' 書き込み対象の列番号
 
-    ' --- ���ʃJ�E���^�̏����� ---
+    ' --- 結果カウンタの初期化 ---
     result.ProcessedCount = 0
     result.DuplicateCount = 0
     result.NewColumnsAdded = 0
 
-    ' --- �W�v�f�[�^�̑S���ڂ����[�v���� ---
+    ' --- 集計データの全項目をループ処理 ---
     For Each key In aggregatedData.Keys
         parts = Split(CStr(key), KEY_SEPARATOR)
         If UBound(parts) >= 1 Then
-            ' --- �������ݑΏۂ̗���擾�i���݂��Ȃ��ꍇ�͐ݒ�ɉ����ĐV�K�쐬�j---
+            ' --- 書き込み対象の列を取得（存在しない場合は設定に応じて新規作成）---
             targetCol = GetOrCreateColumn(parts(0), parts(1), config, wsMonthly, mapDict, lastCol, result)
 
-            ' --- �L���ȗ񂪎擾�ł����ꍇ�̂ݏ������ݎ��s ---
+            ' --- 有効な列が取得できた場合のみ書き込み実行 ---
             If targetCol > 0 Then
-                WriteTimeDataToCell wsMonthly, config.targetRow, targetCol, aggregatedData(key), result
+                ' ★★★ 変更点: 引数に config.targetDate を追加 ★★★
+                WriteTimeDataToCell wsMonthly, config.targetRow, targetCol, aggregatedData(key), result, config.targetDate
                 result.ProcessedCount = result.ProcessedCount + 1
             End If
         End If
@@ -615,22 +613,22 @@ End Sub
 
 
 '===============================================================================
-' �y��Ǘ��v���V�[�W���Q�z
-' �����V�[�g�̗���擾�A�܂��͐V�K�ɍ쐬�E�ݒ肷�鏈�����s���܂��B
+' 【列管理プロシージャ群】
+' 月次シートの列を取得、または新規に作成・設定する処理を行います。
 '===============================================================================
 
 '===============================================================================
-' �y�@�\���z��̎擾�܂��͐V�K�쐬
-' �y�T�v�z  �w�肳�ꂽ�u��ƃR�[�h�{��ԁv�ɑΉ������ԍ����擾���܂��B
-'           ���݂��Ȃ��ꍇ�́A�ݒ肳�ꂽ�|���V�[�Ɋ�Â��V�K�쐬�����݂܂��B
-' �y�����z  category: ��ƃR�[�h
-'           workNo: ���
-'           config: �]�L�����̐ݒ���
-'           wsMonthly: �u�����f�[�^�v�V�[�g�I�u�W�F�N�g
-'           mapDict: ��}�b�s���O���i�V�K�쐬���ɍX�V�����j
-'           lastCol: �ŏI��ԍ��i�V�K�쐬���ɍX�V�����j
-'           result: �������ʃT�}���[�i�V�K�쐬���ɍX�V�����j
-' �y�߂�l�zLong: �Ώۂ̗�ԍ��B�쐬�����ۂ��ꂽ�ꍇ��0��Ԃ��B
+' 【機能名】列の取得または新規作成
+' 【概要】  指定された「作業コード＋作番」に対応する列番号を取得します。
+'           存在しない場合は、設定されたポリシーに基づき新規作成を試みます。
+' 【引数】  category: 作業コード
+'           workNo: 作番
+'           config: 転記処理の設定情報
+'           wsMonthly: 「月次データ」シートオブジェクト
+'           mapDict: 列マッピング情報（新規作成時に更新される）
+'           lastCol: 最終列番号（新規作成時に更新される）
+'           result: 処理結果サマリー（新規作成時に更新される）
+' 【戻り値】Long: 対象の列番号。作成が拒否された場合は0を返す。
 '===============================================================================
 Private Function GetOrCreateColumn( _
     ByVal category As String, ByVal workNo As String, _
@@ -640,50 +638,50 @@ Private Function GetOrCreateColumn( _
     ByRef lastCol As Long, _
     ByRef result As ProcessResult) As Long
 
-    ' --- �ϐ��錾 ---
+    ' --- 変数宣言 ---
     Dim key As String: key = category & KEY_SEPARATOR & workNo
     Dim newCol As Long
 
-    ' --- �}�b�s���O�ɃL�[�����݂���΁A�����̗�ԍ���Ԃ� ---
+    ' --- マッピングにキーが存在すれば、既存の列番号を返す ---
     If mapDict.Exists(key) Then
         GetOrCreateColumn = mapDict(key)
         Exit Function
     End If
 
-    ' --- �����񂪂Ȃ��ꍇ�A��ǉ��|���V�[�ɉ����ď����𕪊� ---
+    ' --- 既存列がない場合、列追加ポリシーに応じて処理を分岐 ---
     Select Case config.AddPolicy
         Case AddPolicy_Reject
-            ' �|���V�[���u���ہv�̏ꍇ�F0��Ԃ��ď������X�L�b�v
+            ' ポリシーが「拒否」の場合：0を返して処理をスキップ
             GetOrCreateColumn = 0
 
         Case AddPolicy_Auto
-            ' �|���V�[���u�����v�̏ꍇ�F�m�F�Ȃ��ŐV�K����쐬
+            ' ポリシーが「自動」の場合：確認なしで新規列を作成
             newCol = CreateNewColumn(category, workNo, wsMonthly, mapDict, lastCol)
             If newCol > 0 Then result.NewColumnsAdded = result.NewColumnsAdded + 1
             GetOrCreateColumn = newCol
 
-        Case Else ' AddPolicy_Prompt (�f�t�H���g)
-            ' �|���V�[���u�m�F�v�̏ꍇ�F���[�U�[�Ɋm�F
+        Case Else ' AddPolicy_Prompt (デフォルト)
+            ' ポリシーが「確認」の場合：ユーザーに確認
             If ConfirmColumnCreation(category, workNo) Then
                 newCol = CreateNewColumn(category, workNo, wsMonthly, mapDict, lastCol)
                 If newCol > 0 Then result.NewColumnsAdded = result.NewColumnsAdded + 1
                 GetOrCreateColumn = newCol
             Else
-                GetOrCreateColumn = 0 ' ���[�U�[���L�����Z��
+                GetOrCreateColumn = 0 ' ユーザーがキャンセル
             End If
     End Select
 End Function
 
 
 '===============================================================================
-' �y�@�\���z�V�K��̍쐬
-' �y�T�v�z  �����V�[�g�̖����ɐV�������ǉ����A�w�b�_���Ə�����ݒ肵�܂��B
-' �y�����z  category: �V������ƃR�[�h
-'           workNo: �V�������
-'           wsMonthly: �u�����f�[�^�v�V�[�g�I�u�W�F�N�g
-'           mapDict: ��}�b�s���O���i���̒��ōX�V�j
-'           lastCol: �ŏI��ԍ��i���̒��ōX�V�j
-' �y�߂�l�zLong: �V�����쐬���ꂽ��̔ԍ�
+' 【機能名】新規列の作成
+' 【概要】  月次シートの末尾に新しい列を追加し、ヘッダ情報と書式を設定します。
+' 【引数】  category: 新しい作業コード
+'           workNo: 新しい作番
+'           wsMonthly: 「月次データ」シートオブジェクト
+'           mapDict: 列マッピング情報（この中で更新）
+'           lastCol: 最終列番号（この中で更新）
+' 【戻り値】Long: 新しく作成された列の番号
 '===============================================================================
 Private Function CreateNewColumn( _
     ByVal category As String, ByVal workNo As String, _
@@ -691,42 +689,42 @@ Private Function CreateNewColumn( _
     ByRef mapDict As Object, _
     ByRef lastCol As Long) As Long
 
-    ' --- �V������ԍ�������i�ŏI��̎��j---
+    ' --- 新しい列番号を決定（最終列の次）---
     Dim newCol As Long
     newCol = lastCol + 1
 
-    ' --- �w�b�_���i��ƃR�[�h�ƍ�ԁj��ݒ� ---
+    ' --- ヘッダ情報（作業コードと作番）を設定 ---
     wsMonthly.Cells(MONTHLY_HEADER_ROW, newCol).value = category
     wsMonthly.Cells(MONTHLY_WORKNO_ROW, newCol).value = workNo
 
-    ' --- �����̗񂩂珑���i�񕝁A�F�A�z�u�Ȃǁj���R�s�[ ---
+    ' --- 既存の列から書式（列幅、色、配置など）をコピー ---
     ApplyColumnFormatting wsMonthly, newCol, IIf(lastCol >= MONTHLY_MIN_COL, lastCol, MONTHLY_MIN_COL)
 
-    ' --- �f�[�^���͕����̃Z���Ɏ��ԏ�����ݒ� ---
+    ' --- データ入力部分のセルに時間書式を設定 ---
     SetDataColumnFormat wsMonthly, newCol
 
-    ' --- �}�b�s���O���ƍŏI��ԍ����X�V ---
+    ' --- マッピング情報と最終列番号を更新 ---
     mapDict.Add category & KEY_SEPARATOR & workNo, newCol
     lastCol = newCol
 
-    ' --- �쐬������ԍ���Ԃ� ---
+    ' --- 作成した列番号を返す ---
     CreateNewColumn = newCol
 End Function
 
 '===============================================================================
-' �y�@�\���z�񏑎��̓K�p
-' �y�T�v�z  �V�K�쐬������ɁA�����̗񂩂珑���i�񕝁A�z�u�A�F�Ȃǁj���R�s�[���܂��B
-' �y�����z  wsMonthly: �u�����f�[�^�v�V�[�g�I�u�W�F�N�g
-'           newCol: �����ݒ�Ώۂ̐V������ԍ�
-'           sourceCol: �����̃R�s�[���ƂȂ��ԍ�
+' 【機能名】列書式の適用
+' 【概要】  新規作成した列に、既存の列から書式（列幅、配置、色など）をコピーします。
+' 【引数】  wsMonthly: 「月次データ」シートオブジェクト
+'           newCol: 書式設定対象の新しい列番号
+'           sourceCol: 書式のコピー元となる列番号
 '===============================================================================
 Private Sub ApplyColumnFormatting(ByRef wsMonthly As Worksheet, ByVal newCol As Long, ByVal sourceCol As Long)
-    On Error Resume Next ' �����ݒ�ŃG���[���������Ă������𑱍s
+    On Error Resume Next ' 書式設定でエラーが発生しても処理を続行
 
-    ' --- �񕝂��R�s�[ ---
+    ' --- 列幅をコピー ---
     wsMonthly.Columns(newCol).ColumnWidth = wsMonthly.Columns(sourceCol).ColumnWidth
 
-    ' --- �w�b�_�s�i��ƃR�[�h�j�̏������R�s�[ ---
+    ' --- ヘッダ行（作業コード）の書式をコピー ---
     With wsMonthly.Cells(MONTHLY_HEADER_ROW, newCol)
         .HorizontalAlignment = wsMonthly.Cells(MONTHLY_HEADER_ROW, sourceCol).HorizontalAlignment
         .VerticalAlignment = wsMonthly.Cells(MONTHLY_HEADER_ROW, sourceCol).VerticalAlignment
@@ -735,7 +733,7 @@ Private Sub ApplyColumnFormatting(ByRef wsMonthly As Worksheet, ByVal newCol As 
         .WrapText = wsMonthly.Cells(MONTHLY_HEADER_ROW, sourceCol).WrapText
     End With
 
-    ' --- ��ԍs�̏������R�s�[ ---
+    ' --- 作番行の書式をコピー ---
     With wsMonthly.Cells(MONTHLY_WORKNO_ROW, newCol)
         .HorizontalAlignment = wsMonthly.Cells(MONTHLY_WORKNO_ROW, sourceCol).HorizontalAlignment
         .VerticalAlignment = wsMonthly.Cells(MONTHLY_WORKNO_ROW, sourceCol).VerticalAlignment
@@ -748,83 +746,89 @@ Private Sub ApplyColumnFormatting(ByRef wsMonthly As Worksheet, ByVal newCol As 
 End Sub
 
 '===============================================================================
-' �y�@�\���z�f�[�^��̏����ݒ�
-' �y�T�v�z  �V�K�쐬������̃f�[�^���͔͈͂ɁA���ԕ\������ ([hh]:mm) ��K�p���܂��B
-' �y�����z  wsMonthly: �u�����f�[�^�v�V�[�g�I�u�W�F�N�g
-'           col: �����ݒ�Ώۂ̗�ԍ�
+' 【機能名】データ列の書式設定
+' 【概要】  新規作成した列のデータ入力範囲に、時間表示書式 ([hh]:mm) を適用します。
+' 【引数】  wsMonthly: 「月次データ」シートオブジェクト
+'           col: 書式設定対象の列番号
 '===============================================================================
 Private Sub SetDataColumnFormat(ByRef wsMonthly As Worksheet, ByVal col As Long)
-    ' --- �f�[�^�͈͂̍ŏI�s���擾�i�f�[�^���Ȃ��ꍇ�̓f�t�H���g�s���܂Őݒ�j---
+    ' --- データ範囲の最終行を取得（データがない場合はデフォルト行数まで設定）---
     Dim lastRow As Long
     lastRow = wsMonthly.Cells(wsMonthly.rows.Count, COL_DATE).End(xlUp).Row
-    If lastRow < MONTHLY_DATA_START_ROW Then lastRow = MONTHLY_DATA_START_ROW + 31 ' �f�t�H���g31����
+    If lastRow < MONTHLY_DATA_START_ROW Then lastRow = MONTHLY_DATA_START_ROW + 31 ' デフォルト31日分
 
-    ' --- �f�[�^�͈͑S�̂Ɏ��ԏ�����K�p ---
+    ' --- データ範囲全体に時間書式を適用 ---
     With wsMonthly.Range(wsMonthly.Cells(MONTHLY_DATA_START_ROW, col), wsMonthly.Cells(lastRow, col))
         .NumberFormatLocal = TIME_FORMAT
     End With
 End Sub
 
 '===============================================================================
-' �y�@�\���z��쐬�̊m�F�_�C�A���O
-' �y�T�v�z  �V�������ǉ�����O�ɁA���[�U�[�Ɏ��s�̉ۂ��m�F���܂��B
-' �y�����z  category: �V������ƃR�[�h
-'           workNo: �V�������
-' �y�߂�l�zBoolean: ���[�U�[���u�͂��v��I�������ꍇ��True
+' 【機能名】列作成の確認ダイアログ
+' 【概要】  新しい列を追加する前に、ユーザーに実行の可否を確認します。
+' 【引数】  category: 新しい作業コード
+'           workNo: 新しい作番
+' 【戻り値】Boolean: ユーザーが「はい」を選択した場合はTrue
 '===============================================================================
 Private Function ConfirmColumnCreation(ByVal category As String, ByVal workNo As String) As Boolean
     ConfirmColumnCreation = (MsgBox( _
-        "��ƃR�[�h�y" & category & "�z+��ԁy" & workNo & "�z�̗񂪂���܂���B" & vbCrLf & _
-        "�����f�[�^�V�[�g�ɐV�������ǉ����܂����H", _
-        vbYesNo + vbQuestion, "��̒ǉ��m�F") = vbYes)
+        "作業コード【" & category & "】+作番【" & workNo & "】の列がありません。" & vbCrLf & _
+        "月次データシートに新しい列を追加しますか？", _
+        vbYesNo + vbQuestion, "列の追加確認") = vbYes)
 End Function
 
 '===============================================================================
-' �y�Z���������݁E�d�������v���V�[�W���Q�z
-' �ʂ̃Z���ւ̃f�[�^�������݂ƁA���̍ۂ̏d��������S�����܂��B
+' 【セル書き込み・重複処理プロシージャ群】
+' 個別のセルへのデータ書き込みと、その際の重複処理を担当します。
 '===============================================================================
 
 '===============================================================================
-' �y�@�\���z�Z���ւ̎��ԃf�[�^��������
-' �y�T�v�z  �w�肳�ꂽ�Z���Ɏ��ԃf�[�^���������݂܂��B
-'           ���d�v�F�����l������ꍇ�͏d���Ƃ݂Ȃ��A�㏑�����܂��B
-' �y�����z  wsMonthly: �u�����f�[�^�v�V�[�g�I�u�W�F�N�g
-'           targetRow: �������ݑΏۂ̍s�ԍ�
-'           targetCol: �������ݑΏۂ̗�ԍ�
-'           minutes: �������ގ��ԁi�����j
-'           result: �������ʃT�}���[�i�d�����ɍX�V�����j
+' 【機能名】セルへの時間データ書き込み
+' 【概要】  指定されたセルに時間データを書き込みます。
+'           ※重要：既存値がある場合は重複とみなし、上書きします。
+' 【引数】  wsMonthly: 「月次データ」シートオブジェクト
+'           targetRow: 書き込み対象の行番号
+'           targetCol: 書き込み対象の列番号
+'           minutes: 書き込む時間（分数）
+'           result: 処理結果サマリー（重複時に更新される）
+'           targetDate: 転記対象の日付（重複メッセージ記録用）
 '===============================================================================
 Private Sub WriteTimeDataToCell( _
     ByRef wsMonthly As Worksheet, _
     ByVal targetRow As Long, ByVal targetCol As Long, _
     ByVal minutes As Double, _
-    ByRef result As ProcessResult)
+    ByRef result As ProcessResult, _
+    ByVal targetDate As Date)
 
-    ' --- �ϐ��錾 ---
-    Dim existingValue As Double         ' �Z���Ɋ��ɓ��͂���Ă���l�iExcel�V���A���l�j
-    Dim newValue As Double              ' ���ꂩ�珑�����ސV�����l�iExcel�V���A���l�j
-    Dim isDup As Boolean                ' �d���t���O (True/False)
+    ' --- 変数宣言 ---
+    Dim existingValue As Double         ' セルに既に入力されている値（Excelシリアル値）
+    Dim newValue As Double              ' これから書き込む新しい値（Excelシリアル値）
+    Dim isDup As Boolean                ' 重複フラグ (True/False)
+    Dim dupMsg As String                ' 重複メッセージ
 
-    ' --- �����l�̃`�F�b�N ---
-    existingValue = NzD(wsMonthly.Cells(targetRow, targetCol).value, 0#) ' Null��G���[�����S��0�ɕϊ�
-    newValue = MinutesToSerial(minutes) ' ������Excel�̃V���A���l�ɕϊ�
-    isDup = (existingValue <> 0#)       ' 0�ȊO�̒l�����ɂ���Ώd���Ɣ��f
+    ' --- 既存値のチェック ---
+    existingValue = NzD(wsMonthly.Cells(targetRow, targetCol).value, 0#) ' Nullやエラーを安全に0に変換
+    newValue = MinutesToSerial(minutes) ' 分数をExcelのシリアル値に変換
+    isDup = (existingValue <> 0#)       ' 0以外の値が既にあれば重複と判断
 
-    ' --- �d�����̏��� ---
+    ' --- 重複時の処理 ---
     If isDup Then
-        result.DuplicateCount = result.DuplicateCount + 1 ' �d���J�E���^���C���N�������g
+        result.DuplicateCount = result.DuplicateCount + 1 ' 重複カウンタをインクリメント
 
-        ' �Z�������F�Ńn�C���C�g
+        ' セルを黄色でハイライト
         HighlightDuplicateCell wsMonthly.Cells(targetRow, targetCol)
 
-        ' ���b�Z�[�W��ɁA�㏑�������O�̒l���L�^
-        LogDuplicateMessage wsMonthly, targetRow, _
-            CStr(wsMonthly.Cells(MONTHLY_HEADER_ROW, targetCol).value), _
-            CStr(wsMonthly.Cells(MONTHLY_WORKNO_ROW, targetCol).value), _
-            existingValue
+        ' ★★★ 変更点: I1セルに記録する重複メッセージを生成 ★★★
+        dupMsg = "登録日: " & Format$(targetDate, DATE_FORMAT) & " | 既存値検出: [" & _
+                 CStr(wsMonthly.Cells(MONTHLY_WORKNO_ROW, targetCol).value) & "|" & _
+                 CStr(wsMonthly.Cells(MONTHLY_HEADER_ROW, targetCol).value) & "] 旧=" & _
+                 SerialToHHMMString(existingValue)
+        
+        ' ★★★ 変更点: I1セルに重複メッセージを追記 ★★★
+        ReportErrorToMonthlySheet dupMsg, True
     End If
 
-    ' --- �Z���ւ̒l�������݁i��ɏ㏑���j---
+    ' --- セルへの値書き込み（常に上書き）---
     With wsMonthly.Cells(targetRow, targetCol)
         .value = newValue
         .NumberFormatLocal = TIME_FORMAT
@@ -832,83 +836,60 @@ Private Sub WriteTimeDataToCell( _
 End Sub
 
 '===============================================================================
-' �y�@�\���z�d���Z���̃n�C���C�g
-' �y�T�v�z  �d�������m���ꂽ�Z�����A�w�肳�ꂽ�F�œh��Ԃ��܂��B
-' �y�����z  cell: �n�C���C�g�Ώۂ�Range�I�u�W�F�N�g
+' 【機能名】重複セルのハイライト
+' 【概要】  重複が検知されたセルを、指定された色で塗りつぶします。
+' 【引数】  cell: ハイライト対象のRangeオブジェクト
 '===============================================================================
 Private Sub HighlightDuplicateCell(ByRef cell As Range)
     With cell.Interior
         .Pattern = xlSolid
-        .Color = DUP_HIGHLIGHT_COLOR ' �萔�Œ�`���ꂽ�F�i���F�j
+        .Color = DUP_HIGHLIGHT_COLOR ' 定数で定義された色（黄色）
     End With
 End Sub
 
 '===============================================================================
-' �y�@�\���z�d�����b�Z�[�W�̋L�^
-' �y�T�v�z  �f�[�^���㏑�������ۂɁA���̒l�����b�Z�[�W��iA��j�ɋL�^���܂��B
-' �y�����z  wsMonthly: �u�����f�[�^�v�V�[�g�I�u�W�F�N�g
-'           rowNum: �L�^�Ώۂ̍s�ԍ�
-'           category: ��ƃR�[�h
-'           workNo: ���
-'           oldValue: �㏑�������O�̒l�iExcel�V���A���l�j
-'===============================================================================
-Private Sub LogDuplicateMessage( _
-    ByRef wsMonthly As Worksheet, ByVal rowNum As Long, _
-    ByVal category As String, ByVal workNo As String, _
-    ByVal oldValue As Double)
-
-    ' --- ���b�Z�[�W������̐��� ---
-    ' �`��: "�����l���o: [���|��ƃR�[�h] ��=H:MM"
-    Dim message As String
-    message = "�����l���o: [" & workNo & "|" & category & "] ��=" & SerialToHHMMString(oldValue)
-
-    ' --- ���b�Z�[�W��Z���ɒǋL ---
-    AppendMessageToCell wsMonthly, rowNum, message
-End Sub
-
-'===============================================================================
-' �y�N���b�v�{�[�h����v���V�[�W���Q�z
-' ���W�����f�[�^�����[�U�[���ė��p���₷���悤�ɃN���b�v�{�[�h�ɃR�s�[���܂��B
+' 【クリップボード操作プロシージャ群】
+' 収集したデータをユーザーが再利用しやすいようにクリップボードにコピーします。
 '===============================================================================
 
 '===============================================================================
-' �y�@�\���z�N���b�v�{�[�h�ւ̃f�[�^�R�s�[
-' �y�T�v�z  ���W�����f�[�^���^�u��؂�̃e�L�X�g�`���ɐ��`���A
-'           �N���b�v�{�[�h�ɃR�s�[���܂��B
-' �y�����z  items: ���W���ꂽ�f�[�^�̃R���N�V����
-'           wsData: �u�f�[�^�o�^�v�V�[�g�I�u�W�F�N�g�i���̃e�L�X�g�`���擾�p�j
+' 【機能名】クリップボードへのデータコピー
+' 【概要】  収集したデータをタブ区切りのテキスト形式に整形し、
+'           クリップボードにコピーします。
+' 【引数】  items: 収集されたデータのコレクション
+'           wsData: 「データ登録」シートオブジェクト（元のテキスト形式取得用）
 '===============================================================================
 Private Sub CopyDataToClipboard(ByRef items As collection, ByRef wsData As Worksheet)
-    ' --- �ϐ��錾 ---
-    Dim sb As String                    ' �N���b�v�{�[�h�ɃR�s�[���镶������\�z���邽�߂̃o�b�t�@
-    Dim i As Long                       ' ���[�v�J�E���^
-    Dim v As Variant                    ' �R���N�V�����̊e�v�f�i�z��j
+    ' --- 変数宣言 ---
+    Dim sb As String                    ' クリップボードにコピーする文字列を構築するためのバッファ
+    Dim i As Long                       ' ループカウンタ
+    Dim v As Variant                    ' コレクションの各要素（配列）
 
-    ' --- ���W�����f�[�^���������[�v ---
+    ' --- 収集したデータ件数分ループ ---
     For i = 1 To items.Count
-        v = items(i) ' �z�� [WorkNo, Category, Minutes, RowIndex] ���擾
+        v = items(i) ' 配列 [WorkNo, Category, Minutes, RowIndex] を取得
 
-        ' --- �^�u��؂�`���̕�����𐶐� ---
-        ' ���d�v�FExcel�ɓ\��t�����ۂ̑̍ق𐮂��邽�߁A�Ӑ}�I�Ƀ^�u��}��
+        ' --- タブ区切り形式の文字列を生成 ---
+        ' ※重要：Excelに貼り付けた際の体裁を整えるため、意図的にタブを挿入
         sb = sb & CStr(v(1)) & vbTab & CStr(v(2)) & vbTab & vbTab & _
                  CStr(wsData.Cells(CLng(v(4)), COL_TIME).text) & vbCrLf
     Next
 
-    ' --- �����񂪐������ꂽ�ꍇ�̂݁A�N���b�v�{�[�h�ɃR�s�[ ---
+    ' --- 文字列が生成された場合のみ、クリップボードにコピー ---
     If Len(sb) > 0 Then CopyTextToClipboardSafe sb
 End Sub
 
 '===============================================================================
-' �y�@�\���z���S�ȃN���b�v�{�[�h�R�s�[
-' �y�T�v�z  �N���b�v�{�[�h�ւ̃e�L�X�g�R�s�[�����݂܂��B
-'           �܂��݊����̍��� `Forms.DataObject` ���g�p���A���s�����ꍇ��
-'           ���჌�x���� `WinAPI` ���g�p����t�H�[���o�b�N�������̂�܂��B
-' �y�����z  textToCopy: �N���b�v�{�[�h�ɃR�s�[���镶����
+' 【機能名】安全なクリップボードコピー
+' 【概要】  クリップボードへのテキストコピーを試みます。
+'           まず互換性の高い `Forms.DataObject` を使用し、失敗した場合は
+'           より低レベルな `WinAPI` を使用するフォールバック方式を採ります。
+' 【引数】  textToCopy: クリップボードにコピーする文字列
 '===============================================================================
 Private Sub CopyTextToClipboardSafe(ByVal textToCopy As String)
-    On Error GoTo APIFallback ' DataObject�ł̃G���[��������APIFallback��
+    On Error GoTo APIFallback ' DataObjectでのエラー発生時はAPIFallbackへ
 
-    ' --- ���@1�FForms.DataObject���g�p (�Q�Ɛݒ�s�v�����A���ɂ���Ă͎��s����) ---
+    ' --- 方法1：Forms.DataObjectを使用 (参照設定不要だが、環境によっては失敗する) ---
     Dim dataObject As Object
     Set dataObject = CreateObject("Forms.DataObject")
     dataObject.SetText textToCopy
@@ -916,172 +897,172 @@ Private Sub CopyTextToClipboardSafe(ByVal textToCopy As String)
     Exit Sub
 
 APIFallback:
-    ' --- ���@2�FWinAPI�𒼐ڌĂяo�� (���m���ȕ��@) ---
+    ' --- 方法2：WinAPIを直接呼び出し (より確実な方法) ---
     CopyTextToClipboardWinAPI textToCopy
 End Sub
 
 '===============================================================================
-' �y�@�\���zWinAPI�ɂ��N���b�v�{�[�h�R�s�[
-' �y�T�v�z  Windows API�𒼐ڌĂяo���āAUnicode�e�L�X�g���N���b�v�{�[�h�ɃR�s�[���܂��B
-' �y�����z  textToCopy: �N���b�v�{�[�h�ɃR�s�[���镶����
+' 【機能名】WinAPIによるクリップボードコピー
+' 【概要】  Windows APIを直接呼び出して、Unicodeテキストをクリップボードにコピーします。
+' 【引数】  textToCopy: クリップボードにコピーする文字列
 '===============================================================================
 Private Sub CopyTextToClipboardWinAPI(ByVal textToCopy As String)
-    ' --- �ϐ��錾�i64/32�r�b�g���Ή��j---
+    ' --- 変数宣言（64/32ビット両対応）---
 #If VBA7 Then
     Dim hGlobalMemory As LongPtr, lpGlobalMemory As LongPtr
 #Else
     Dim hGlobalMemory As Long, lpGlobalMemory As Long
 #End If
-    Dim bytesNeeded As Long             ' �m�ۂ��郁�����T�C�Y
-    Dim retryCount As Long              ' �N���b�v�{�[�h�I�[�v�����g���C�p�J�E���^
+    Dim bytesNeeded As Long             ' 確保するメモリサイズ
+    Dim retryCount As Long              ' クリップボードオープンリトライ用カウンタ
 
-    ' --- �󕶎���̏ꍇ�͉������Ȃ� ---
+    ' --- 空文字列の場合は何もしない ---
     If Len(textToCopy) = 0 Then Exit Sub
 
-    ' --- Unicode��������i�[���邽�߂̃O���[�o�����������m�� ---
-    bytesNeeded = (Len(textToCopy) + 1) * 2 ' Unicode��1����2�o�C�g + Null�I�[����
+    ' --- Unicode文字列を格納するためのグローバルメモリを確保 ---
+    bytesNeeded = (Len(textToCopy) + 1) * 2 ' Unicodeは1文字2バイト + Null終端文字
     hGlobalMemory = GlobalAlloc(GMEM_MOVEABLE, bytesNeeded)
-    If hGlobalMemory = 0 Then Exit Sub ' �������m�ێ��s
+    If hGlobalMemory = 0 Then Exit Sub ' メモリ確保失敗
 
-    ' --- �����������b�N���ă|�C���^���擾���A��������R�s�[ ---
+    ' --- メモリをロックしてポインタを取得し、文字列をコピー ---
     lpGlobalMemory = GlobalLock(hGlobalMemory)
     If lpGlobalMemory <> 0 Then
-        lstrcpyW lpGlobalMemory, StrPtr(textToCopy) ' Unicode��������������ɃR�s�[
+        lstrcpyW lpGlobalMemory, StrPtr(textToCopy) ' Unicode文字列をメモリにコピー
         GlobalUnlock hGlobalMemory
 
-        ' --- �N���b�v�{�[�h�̃I�[�v�������s�i���v���Z�X���g�p���̏ꍇ�����邽�߃��g���C�����j---
+        ' --- クリップボードのオープンを試行（他プロセスが使用中の場合があるためリトライ処理）---
         For retryCount = 1 To 5
-            If OpenClipboard(0) <> 0 Then Exit For ' �I�[�v������
+            If OpenClipboard(0) <> 0 Then Exit For ' オープン成功
             DoEvents
         Next retryCount
 
         If retryCount <= 5 Then
-            ' --- �N���b�v�{�[�h���� ---
-            EmptyClipboard ' �N���b�v�{�[�h����ɂ���
+            ' --- クリップボード操作 ---
+            EmptyClipboard ' クリップボードを空にする
             If SetClipboardData(CF_UNICODETEXT, hGlobalMemory) = 0 Then
-                ' �f�[�^�̃Z�b�g�Ɏ��s�����ꍇ�́A�m�ۂ��������������
+                ' データのセットに失敗した場合は、確保したメモリを解放
                 GlobalFree hGlobalMemory
             End If
-            CloseClipboard ' �N���b�v�{�[�h�����
+            CloseClipboard ' クリップボードを閉じる
         Else
-            ' ���g���C���Ă��I�[�v���ł��Ȃ������ꍇ�̓����������
+            ' リトライしてもオープンできなかった場合はメモリを解放
             GlobalFree hGlobalMemory
         End If
     Else
-        ' ���������b�N���s���̓��������
+        ' メモリロック失敗時はメモリ解放
         GlobalFree hGlobalMemory
     End If
 End Sub
 '===============================================================================
-' �y���[�e�B���e�B�֐��E�v���V�[�W���Q�z
-' ���ԕϊ��A�����A���b�Z�[�W�����ȂǁA���W���[�����ŋ��ʂ��Ďg�p�����
-' �ėp�I�ȋ@�\��񋟂��܂��B
+' 【ユーティリティ関数・プロシージャ群】
+' 時間変換、検索、メッセージ処理など、モジュール内で共通して使用される
+' 汎用的な機能を提供します。
 '===============================================================================
 
 '===============================================================================
-' �y�@�\���z�g�����ԕϊ��i�����ցj
-' �y�T�v�z  �l�X�Ȍ`���iDate�^�A�V���A���l�A"HHMM"�`���̐��l/������Ȃǁj��
-'           �^����ꂽ���ԃf�[�^���A�S�āu�����v�ɓ��ꂵ�ĕϊ����܂��B
-' �y�����z  timeValue: �ϊ����̎��ԃf�[�^ (Variant�^)
-' �y�߂�l�zDouble: �ϊ���̕����B�ϊ��s�̏ꍇ��0��Ԃ��B
+' 【機能名】拡張時間変換（分数へ）
+' 【概要】  様々な形式（Date型、シリアル値、"HHMM"形式の数値/文字列など）で
+'           与えられた時間データを、全て「分数」に統一して変換します。
+' 【引数】  timeValue: 変換元の時間データ (Variant型)
+' 【戻り値】Double: 変換後の分数。変換不可の場合は0を返す。
 '===============================================================================
 Private Function ConvertToMinutesEx(ByVal timeValue As Variant) As Double
-    ' --- �ϐ��錾 ---
+    ' --- 変数宣言 ---
     Dim s As String
 
-    ' --- �߂�l�̏����� ---
+    ' --- 戻り値の初期化 ---
     ConvertToMinutesEx = 0
 
-    ' --- ��l�`�F�b�N ---
+    ' --- 空値チェック ---
     If IsEmpty(timeValue) Then Exit Function
 
-    ' --- Date�^�i�����f�[�^�j�̏ꍇ ---
+    ' --- Date型（時刻データ）の場合 ---
     If IsDate(timeValue) Then
         ConvertToMinutesEx = CDbl(CDate(timeValue)) * MINUTES_PER_DAY
         Exit Function
     End If
 
-    ' --- ���l�^�̏ꍇ ---
+    ' --- 数値型の場合 ---
     If IsNumeric(timeValue) Then
         If InStr(1, CStr(timeValue), ".") > 0 Then
-            ' �����_���܂ޏꍇ �� Excel�V���A���l�Ƃ��Ĉ���
+            ' 小数点を含む場合 → Excelシリアル値として扱う
             ConvertToMinutesEx = CDbl(timeValue) * MINUTES_PER_DAY
         Else
-            ' �����݂̂̏ꍇ �� "HHMM"�`���̐����Ƃ��Ĉ��� (��: 130 -> 1����30��)
+            ' 整数のみの場合 → "HHMM"形式の整数として扱う (例: 130 -> 1時間30分)
             ConvertToMinutesEx = ParseHHMMInteger(CLng(timeValue))
         End If
         Exit Function
     End If
 
-    ' --- ������^�̏ꍇ ---
+    ' --- 文字列型の場合 ---
     s = Trim$(CStr(timeValue))
     If InStr(s, ":") > 0 Then
-        ' �R�������܂ޏꍇ �� "H:MM"�`���̕�����Ƃ��Ĉ��� (��: "1:30")
+        ' コロンを含む場合 → "H:MM"形式の文字列として扱う (例: "1:30")
         ConvertToMinutesEx = ParseHHMMString(s)
     ElseIf IsNumeric(s) Then
-        ' ���l�݂̂̕�����̏ꍇ �� "HHMM"�`���̐����Ƃ��Ĉ���
+        ' 数値のみの文字列の場合 → "HHMM"形式の整数として扱う
         ConvertToMinutesEx = ParseHHMMInteger(CLng(Val(s)))
     End If
 End Function
 
 '===============================================================================
-' �y�@�\���zHHMM�`�������̉��
-' �y�T�v�z  "HHMM"�`���ŕ\�����ꂽ�����i��: 130, 1030�j�𕪐��ɕϊ����܂��B
-' �y�����z  hhmmValue: HHMM�`���̐��� (Long)
-' �y�߂�l�zDouble: �ϊ���̕����B
-'           ��: 130 -> 90, 1030 -> 630
+' 【機能名】HHMM形式整数の解析
+' 【概要】  "HHMM"形式で表現された整数（例: 130, 1030）を分数に変換します。
+' 【引数】  hhmmValue: HHMM形式の整数 (Long)
+' 【戻り値】Double: 変換後の分数。
+'           例: 130 -> 90, 1030 -> 630
 '===============================================================================
 Private Function ParseHHMMInteger(ByVal hhmmValue As Long) As Double
-    ' --- �ϐ��錾 ---
-    Dim hours As Long, minutes As Long  ' ���Ԃƕ�
-    Dim t As String                     ' �����𕶎���ɕϊ���̈ꎞ�ϐ�
+    ' --- 変数宣言 ---
+    Dim hours As Long, minutes As Long  ' 時間と分
+    Dim t As String                     ' 整数を文字列に変換後の一時変数
 
-    ' --- �߂�l�̏������Ǝ��O�`�F�b�N ---
+    ' --- 戻り値の初期化と事前チェック ---
     ParseHHMMInteger = 0
-    If hhmmValue < 0 Then Exit Function ' �����͖���
+    If hhmmValue < 0 Then Exit Function ' 負数は無効
 
-    ' --- �����ɉ����Ď��Ԃƕ��𕪗� ---
+    ' --- 桁数に応じて時間と分を分離 ---
     t = CStr(hhmmValue)
     Select Case Len(t)
         Case 1, 2
-            ' 1-2���̏ꍇ: �S�āu���v�Ƃ��Ĉ��� (��: 5 -> 5��, 30 -> 30��)
+            ' 1-2桁の場合: 全て「分」として扱う (例: 5 -> 5分, 30 -> 30分)
             minutes = hhmmValue: hours = 0
         Case 3, 4
-            ' 3-4���̏ꍇ: ��2�����u���v�A�c����u���ԁv�Ƃ��Ĉ��� (��: 130 -> 1����30��)
+            ' 3-4桁の場合: 下2桁を「分」、残りを「時間」として扱う (例: 130 -> 1時間30分)
             hours = CLng(Left$(t, Len(t) - 2))
             minutes = CLng(Right$(t, 2))
         Case Else
-            ' 5���ȏ�͖����Ȍ`���Ƃ݂Ȃ��A�������I��
+            ' 5桁以上は無効な形式とみなし、処理を終了
             Exit Function
     End Select
 
-    ' --- ���̑Ó����`�F�b�N�i0�`59�͈̔́j---
+    ' --- 分の妥当性チェック（0～59の範囲）---
     If minutes >= 0 And minutes < MAX_MINUTES_PER_HOUR Then
         ParseHHMMInteger = hours * MINUTES_PER_HOUR + minutes
     End If
 End Function
 
 '===============================================================================
-' �y�@�\���zH:MM�`��������̉��
-' �y�T�v�z  �R������؂�̎��ԕ�����i��: "1:30"�j�𕪐��ɕϊ����܂��B
-' �y�����z  timeString: H:MM�`���̕�����
-' �y�߂�l�zDouble: �ϊ���̕����B
+' 【機能名】H:MM形式文字列の解析
+' 【概要】  コロン区切りの時間文字列（例: "1:30"）を分数に変換します。
+' 【引数】  timeString: H:MM形式の文字列
+' 【戻り値】Double: 変換後の分数。
 '===============================================================================
 Private Function ParseHHMMString(ByVal timeString As String) As Double
-    ' --- �ϐ��錾 ---
-    Dim parts() As String               ' �R�����ŕ����������ʂ��i�[����z��
-    Dim h As Long, m As Long            ' ���Ԃƕ�
+    ' --- 変数宣言 ---
+    Dim parts() As String               ' コロンで分割した結果を格納する配列
+    Dim h As Long, m As Long            ' 時間と分
 
-    ' --- �߂�l�̏����� ---
+    ' --- 戻り値の初期化 ---
     ParseHHMMString = 0
 
-    ' --- �R�����ŕ�����𕪊� ---
+    ' --- コロンで文字列を分割 ---
     parts = Split(timeString, ":")
-    If UBound(parts) = 1 Then ' �������ʂ�2�i���Ԃƕ��j�ł��邩�m�F
+    If UBound(parts) = 1 Then ' 分割結果が2つ（時間と分）であるか確認
         If IsNumeric(parts(0)) And IsNumeric(parts(1)) Then
             h = CLng(parts(0)): m = CLng(parts(1))
 
-            ' --- ���̑Ó����`�F�b�N�i0�`59�͈̔́j---
+            ' --- 分の妥当性チェック（0～59の範囲）---
             If m >= 0 And m < MAX_MINUTES_PER_HOUR Then
                 ParseHHMMString = h * MINUTES_PER_HOUR + m
             End If
@@ -1090,130 +1071,94 @@ Private Function ParseHHMMString(ByVal timeString As String) As Double
 End Function
 
 '===============================================================================
-' �y�@�\���z��������V���A���l�ւ̕ϊ�
-' �y�T�v�z  ������Excel�����Ŏg���鎞�Ԃ̃V���A���l�ɕϊ����܂��B
-' �y�����z  totalMinutes: �ϊ����̕���
-' �y�߂�l�zDouble: Excel�̎��ԃV���A���l
+' 【機能名】分数からシリアル値への変換
+' 【概要】  分数をExcel内部で使われる時間のシリアル値に変換します。
+' 【引数】  totalMinutes: 変換元の分数
+' 【戻り値】Double: Excelの時間シリアル値
 '===============================================================================
 Private Function MinutesToSerial(ByVal totalMinutes As Double) As Double
     MinutesToSerial = totalMinutes / MINUTES_PER_DAY
 End Function
 
 '===============================================================================
-' �y�@�\���z��������H:MM�`��������ւ̕ϊ�
-' �y�T�v�z  ������l�Ԃ��ǂ݂₷�� "H:MM" �`���̕�����ɕϊ����܂��B
-' �y�����z  totalMinutes: �ϊ����̕���
-' �y�߂�l�zString: "H:MM" �`���̕�����i��: 90 -> "1:30"�j
+' 【機能名】分数からH:MM形式文字列への変換
+' 【概要】  分数を人間が読みやすい "H:MM" 形式の文字列に変換します。
+' 【引数】  totalMinutes: 変換元の分数
+' 【戻り値】String: "H:MM" 形式の文字列（例: 90 -> "1:30"）
 '===============================================================================
 Private Function MinutesToHHMMString(ByVal totalMinutes As Double) As String
-    ' --- �ϐ��錾 ---
-    Dim h As Long, m As Long           ' ���Ԃƕ�
+    ' --- 変数宣言 ---
+    Dim h As Long, m As Long           ' 時間と分
 
-    ' --- 0�ȉ��̏ꍇ�� "0:00" ��Ԃ� ---
+    ' --- 0以下の場合は "0:00" を返す ---
     If totalMinutes <= 0 Then
         MinutesToHHMMString = "0:00": Exit Function
     End If
 
-    ' --- �������玞�Ԃƕ����v�Z ---
+    ' --- 分数から時間と分を計算 ---
     h = Int(totalMinutes / MINUTES_PER_HOUR)
-    m = Round(totalMinutes - h * MINUTES_PER_HOUR, 0) ' �[�������̂��ߎl�̌ܓ�
+    m = Round(totalMinutes - h * MINUTES_PER_HOUR, 0) ' 端数処理のため四捨五入
 
-    ' --- ����60�ɂȂ����ꍇ�̌J��オ�菈�� ---
+    ' --- 分が60になった場合の繰り上がり処理 ---
     If m = MAX_MINUTES_PER_HOUR Then h = h + 1: m = 0
 
-    ' --- �����𐮂��ĕԋp ---
+    ' --- 書式を整えて返却 ---
     MinutesToHHMMString = Format$(h, "0") & ":" & Format$(m, "00")
 End Function
 
 '===============================================================================
-' �y�@�\���z�V���A���l����H:MM�`��������ւ̕ϊ�
-' �y�T�v�z  Excel�̎��ԃV���A���l�� "H:MM" �`���̕�����ɕϊ����܂��B
-' �y�����z  serialValue: Excel�̎��ԃV���A���l
-' �y�߂�l�zString: "H:MM" �`���̕�����
+' 【機能名】シリアル値からH:MM形式文字列への変換
+' 【概要】  Excelの時間シリアル値を "H:MM" 形式の文字列に変換します。
+' 【引数】  serialValue: Excelの時間シリアル値
+' 【戻り値】String: "H:MM" 形式の文字列
 '===============================================================================
 Private Function SerialToHHMMString(ByVal serialValue As Double) As String
     SerialToHHMMString = MinutesToHHMMString(serialValue * MINUTES_PER_DAY)
 End Function
 
 '===============================================================================
-' �y�@�\���z���t��v�s�̌���
-' �y�T�v�z  �����V�[�g�̓��t��(B��)����A�w�肳�ꂽ���t�ƈ�v����s���������܂��B
-' �y�����z  wsMonthly: �����f�[�^�V�[�g�I�u�W�F�N�g
-'           targetDate: ����������t
-' �y�߂�l�zLong: ��v�����s�̔ԍ��B������Ȃ��ꍇ��0��Ԃ��B
+' 【機能名】日付一致行の検索
+' 【概要】  月次シートの日付列(B列)から、指定された日付と一致する行を検索します。
+' 【引数】  wsMonthly: 月次データシートオブジェクト
+'           targetDate: 検索する日付
+' 【戻り値】Long: 一致した行の番号。見つからない場合は0を返す。
 '===============================================================================
 Private Function FindMatchingDateRow(ByRef wsMonthly As Worksheet, ByVal targetDate As Date) As Long
-    ' --- �ϐ��錾 ---
-    Dim lastRow As Long, r As Long     ' ���[�v�p�̍s�ϐ�
-    Dim d As Date                      ' �e�s����ǂݎ�������t
+    ' --- 変数宣言 ---
+    Dim lastRow As Long, r As Long     ' ループ用の行変数
+    Dim d As Date                      ' 各行から読み取った日付
 
-    ' --- �߂�l�̏����� ---
+    ' --- 戻り値の初期化 ---
     FindMatchingDateRow = 0
 
-    ' --- ���t��̍ŏI�s���擾 ---
+    ' --- 日付列の最終行を取得 ---
     lastRow = wsMonthly.Cells(wsMonthly.rows.Count, COL_DATE).End(xlUp).Row
-    If lastRow < MONTHLY_DATA_START_ROW Then Exit Function ' �f�[�^�����݂��Ȃ��ꍇ
+    If lastRow < MONTHLY_DATA_START_ROW Then Exit Function ' データが存在しない場合
 
-    ' --- �f�[�^�J�n�s����ŏI�s�܂Ń��[�v ---
+    ' --- データ開始行から最終行までループ ---
     For r = MONTHLY_DATA_START_ROW To lastRow
         If IsDate(wsMonthly.Cells(r, COL_DATE).value) Then
             d = CDate(wsMonthly.Cells(r, COL_DATE).value)
-            ' ���d�v�F���Ԃ͖������A���t�����݂̂Ŕ�r
+            ' ※重要：時間は無視し、日付部分のみで比較
             If Int(d) = Int(targetDate) Then
-                FindMatchingDateRow = r: Exit Function ' ��v�����s�����������瑦���ɏI��
+                FindMatchingDateRow = r: Exit Function ' 一致した行が見つかったら即座に終了
             End If
         End If
     Next
 End Function
 
 '===============================================================================
-' �y�@�\���z���b�Z�[�W��w�b�_�̊m�F�Ɛݒ�
-' �y�T�v�z  �����V�[�g�̃��b�Z�[�W��iA��j�Ƀw�b�_���ݒ肳��Ă��邩�m�F���A
-'           ��̏ꍇ�́u���b�Z�[�W�v�Ƃ����w�b�_��ݒ肵�܂��B
-' �y�����z  wsMonthly: �����f�[�^�V�[�g�I�u�W�F�N�g
-'===============================================================================
-Private Sub EnsureMessageColumnHeader(ByRef wsMonthly As Worksheet)
-    With wsMonthly.Cells(MONTHLY_HEADER_ROW, COL_MESSAGE)
-        ' --- �w�b�_����̏ꍇ�̂ݐݒ� ---
-        If Trim$(CStr(.value)) = "" Then
-            .value = "���b�Z�[�W"
-            .Font.Bold = True
-        End If
-    End With
-End Sub
-
-'===============================================================================
-' �y�@�\���z���b�Z�[�W�Z���ւ̒ǋL
-' �y�T�v�z  �w�肳�ꂽ�s�̃��b�Z�[�W�Z���ɁA�V�������b�Z�[�W��ǋL���܂��B
-'           �����̃��b�Z�[�W������ꍇ�́A���s�ŋ�؂��Č��ɒǉ����܂��B
-' �y�����z  wsMonthly: �����f�[�^�V�[�g�I�u�W�F�N�g
-'           rowNum: ���b�Z�[�W��ǋL����s�ԍ�
-'           message: �ǋL���郁�b�Z�[�W������
-'===============================================================================
-Private Sub AppendMessageToCell(ByRef wsMonthly As Worksheet, ByVal rowNum As Long, ByVal message As String)
-    With wsMonthly.Cells(rowNum, COL_MESSAGE)
-        If Len(.value) = 0 Then
-            ' --- �Z������̏ꍇ�́A���̂܂܃��b�Z�[�W��ݒ� ---
-            .value = message
-        Else
-            ' --- �����̒l������ꍇ�́A���s�R�[�h������ŒǋL ---
-            .value = CStr(.value) & MESSAGE_SEPARATOR & message
-        End If
-    End With
-End Sub
-
-'===============================================================================
-' �y�@�\���zNull�l���S�Ȑ��l�ϊ� (NzD)
-' �y�T�v�z  Variant�^�̒l�����S��Double�^�ɕϊ����܂��B
-'           Null�AEmpty�A�G���[�l�A�󕶎���Ȃǂ̏ꍇ�́A�w�肳�ꂽ�f�t�H���g�l��Ԃ��܂��B
-' �y�����z  value: �ϊ�����Variant�l
-'           defaultValue: �ϊ����s���ɕԂ��f�t�H���g�l�i�ȗ���: 0�j
-' �y�߂�l�zDouble: �ϊ���̐��l
+' 【機能名】Null値安全な数値変換 (NzD)
+' 【概要】  Variant型の値を安全にDouble型に変換します。
+'           Null、Empty、エラー値、空文字列などの場合は、指定されたデフォルト値を返します。
+' 【引数】  value: 変換元のVariant値
+'           defaultValue: 変換失敗時に返すデフォルト値（省略時: 0）
+' 【戻り値】Double: 変換後の数値
 '===============================================================================
 Private Function NzD(ByVal value As Variant, Optional ByVal defaultValue As Double = 0#) As Double
-    On Error Resume Next ' ���l�ϊ��G���[�𖳎����邽��
+    On Error Resume Next ' 数値変換エラーを無視するため
 
-    ' --- �e��̖����l���`�F�b�N ---
+    ' --- 各種の無効値をチェック ---
     If IsError(value) Or IsEmpty(value) Or IsNull(value) Or value = "" Then
         NzD = defaultValue
     ElseIf IsNumeric(value) Then
@@ -1226,262 +1171,249 @@ Private Function NzD(ByVal value As Variant, Optional ByVal defaultValue As Doub
 End Function
 
 '===============================================================================
-' �y�A�v���P�[�V������ԁE�ی�Ǘ��v���V�[�W���Q�z
-' �}�N�����s����Excel�̏�ԁi��ʍX�V�A�v�Z���@�Ȃǁj��V�[�g�ی��
-' ���S�ɊǗ����邽�߂̋@�\��񋟂��܂��B
+' 【アプリケーション状態・保護管理プロシージャ群】
+' マクロ実行中のExcelの状態（画面更新、計算方法など）やシート保護を
+' 安全に管理するための機能を提供します。
 '===============================================================================
 
 '===============================================================================
-' �y�@�\���z�A�v���P�[�V������Ԃ̕ۑ��ƍ������ݒ�
-' �y�T�v�z  ���݂�Excel�ݒ���\���̂ɕۑ����A�����������̂��߂ɐݒ��ύX���܂��B
-' �y�����z  prevState: ApplicationState�\���́i�ݒ�̕ۑ���j
+' 【機能名】アプリケーション状態の保存と高速化設定
+' 【概要】  現在のExcel設定を構造体に保存し、処理高速化のために設定を変更します。
+' 【引数】  prevState: ApplicationState構造体（設定の保存先）
 '===============================================================================
 Private Sub SaveAndSetApplicationState(ByRef prevState As ApplicationState)
-    ' --- ���݂̏�Ԃ��\���̂ɕۑ� ---
+    ' --- 現在の状態を構造体に保存 ---
     With prevState
         .ScreenUpdating = Application.ScreenUpdating
         .EnableEvents = Application.EnableEvents
         .Calculation = Application.Calculation
     End With
 
-    ' --- �������̃p�t�H�[�}���X����̂��ߐݒ��ύX ---
+    ' --- 処理中のパフォーマンス向上のため設定を変更 ---
     With Application
-        .ScreenUpdating = False              ' ��ʕ`����~
-        .EnableEvents = False                ' �C�x���g�������~
-        .Calculation = xlCalculationManual   ' �v�Z���蓮��
+        .ScreenUpdating = False              ' 画面描画を停止
+        .EnableEvents = False                ' イベント発生を停止
+        .Calculation = xlCalculationManual   ' 計算を手動に
     End With
 End Sub
 
 '===============================================================================
-' �y�@�\���z�A�v���P�[�V������Ԃ̕���
-' �y�T�v�z  �ۑ����Ă�����Excel�ݒ�ɕ������܂��B
-' �y�����z  prevState: �ۑ����Ă�������Ԃ�����ApplicationState�\����
+' 【機能名】アプリケーション状態の復元
+' 【概要】  保存しておいたExcel設定に復元します。
+' 【引数】  prevState: 保存しておいた状態を持つApplicationState構造体
 '===============================================================================
 Private Sub RestoreApplicationState(ByRef prevState As ApplicationState)
-     ' --- �ۑ����ꂽ��ԂɃA�v���P�[�V�����ݒ�𕜌� ---
+     ' --- 保存された状態にアプリケーション設定を復元 ---
     With Application
-        .Calculation = prevState.Calculation        ' �v�Z���[�h�𕜌�
-        .EnableEvents = prevState.EnableEvents      ' �C�x���g�ݒ�𕜌�
-        .ScreenUpdating = prevState.ScreenUpdating  ' ��ʕ`����Ō�ɗL����
+        .Calculation = prevState.Calculation        ' 計算モードを復元
+        .EnableEvents = prevState.EnableEvents      ' イベント設定を復元
+        .ScreenUpdating = prevState.ScreenUpdating  ' 画面描画を最後に有効化
     End With
 End Sub
 
 '===============================================================================
-' �y�@�\���z�V�[�g�ی�̉����i�K�v���j
-' �y�T�v�z  �V�[�g���ی삳��Ă���ꍇ�A���������݂܂��B�܂���p�X���[�h�Ŏ��s���A
-'           ���s�����ꍇ�̓��[�U�[�ɓ��͂����߂܂��B
-' �y�����z  ws: �Ώۃ��[�N�V�[�g
-'           protInfo: �ی�����i�[����\���� (�o��)
-' �y�߂�l�zBoolean: �����ɐ��������ꍇ��True�A���s�E�L�����Z���̏ꍇ��False
+' 【機能名】シート保護の解除（必要時）
+' 【概要】  シートが保護されている場合、解除を試みます。まず空パスワードで試行し、
+'           失敗した場合はユーザーに入力を求めます。
+' 【引数】  ws: 対象ワークシート
+'           protInfo: 保護情報を格納する構造体 (出力)
+' 【戻り値】Boolean: 解除に成功した場合はTrue、失敗・キャンセルの場合はFalse
 '===============================================================================
 Private Function UnprotectSheetIfNeeded(ByRef ws As Worksheet, ByRef protInfo As SheetProtectionInfo) As Boolean
-    ' --- ���݂̕ی��Ԃ��L�^ ---
+    ' --- 現在の保護状態を記録 ---
     protInfo.IsProtected = ws.ProtectContents
     protInfo.Password = ""
 
-    ' --- �ی삳��Ă��Ȃ��ꍇ�́A�������Ȃ��Ő���I�� ---
+    ' --- 保護されていない場合は、何もしないで正常終了 ---
     If Not protInfo.IsProtected Then
         UnprotectSheetIfNeeded = True
         Exit Function
     End If
 
-    ' --- �ی삳��Ă���ꍇ�̉������� ---
-    On Error Resume Next ' �p�X���[�h�ԈႢ�̃G���[���n���h�����邽��
-    ws.Unprotect ""      ' �܂��͋�p�X���[�h�Ŏ��s
+    ' --- 保護されている場合の解除処理 ---
+    On Error Resume Next ' パスワード間違いのエラーをハンドルするため
+    ws.Unprotect ""      ' まずは空パスワードで試行
     If Err.Number = 0 Then
-        ' ��p�X���[�h�ŉ�������
+        ' 空パスワードで解除成功
         UnprotectSheetIfNeeded = True
         protInfo.Password = ""
         On Error GoTo 0
         Exit Function
     End If
 
-    ' --- ��p�X���[�h���s���A���[�U�[�ɓ��͂𑣂� ---
+    ' --- 空パスワード失敗時、ユーザーに入力を促す ---
     Err.Clear
-    protInfo.Password = InputBox("�V�[�g�y" & ws.Name & "�z�̕ی�p�X���[�h����͂��Ă��������B", "�ی����")
+    protInfo.Password = InputBox("シート【" & ws.Name & "】の保護パスワードを入力してください。", "保護解除")
 
-    ' --- ���[�U�[���L�����Z�������ꍇ ---
+    ' --- ユーザーがキャンセルした場合 ---
     If protInfo.Password = "" Then
         UnprotectSheetIfNeeded = False
         On Error GoTo 0
         Exit Function
     End If
 
-    ' --- ���͂��ꂽ�p�X���[�h�ŉ��������s ---
+    ' --- 入力されたパスワードで解除を試行 ---
     ws.Unprotect protInfo.Password
-    UnprotectSheetIfNeeded = (Err.Number = 0) ' �G���[���������Ȃ���ΐ���
+    UnprotectSheetIfNeeded = (Err.Number = 0) ' エラーが発生しなければ成功
     On Error GoTo 0
 End Function
 
 '===============================================================================
-' �y�@�\���z�V�[�g�ی�̕���
-' �y�T�v�z  �����J�n�O�ɃV�[�g���ی삳��Ă����ꍇ�A���̏�Ԃɍĕی삵�܂��B
-' �y�����z  ws: �Ώۃ��[�N�V�[�g
-'           protInfo: �ۑ����Ă������ی���
+' 【機能名】シート保護の復元
+' 【概要】  処理開始前にシートが保護されていた場合、元の状態に再保護します。
+' 【引数】  ws: 対象ワークシート
+'           protInfo: 保存しておいた保護情報
 '===============================================================================
 Private Sub RestoreSheetProtection(ByRef ws As Worksheet, ByRef protInfo As SheetProtectionInfo)
-    ' --- �����O�ɕی삳��Ă����ꍇ�̂ݍĕی�����s ---
+    ' --- 処理前に保護されていた場合のみ再保護を実行 ---
     If protInfo.IsProtected Then
         On Error Resume Next
-        ' ���d�v�FUserInterfaceOnly:=True ���w�肵�A���[�U�[�̎葀��݂̂��֎~
-        ' ����ɂ��A�㑱�̃}�N������̑���͈��������������
+        ' ※重要：UserInterfaceOnly:=True を指定し、ユーザーの手操作のみを禁止
+        ' これにより、後続のマクロからの操作は引き続き許可される
         ws.Protect Password:=protInfo.Password, UserInterfaceOnly:=True
         On Error GoTo 0
     End If
 End Sub
 
 '===============================================================================
-' �y�G���[�n���h�����O�E���ʕ\���v���V�[�W���Q�z
-' �G���[�����ƁA���[�U�[�ւ̌��ʒʒm��S�����܂��B
+' 【エラーハンドリング・結果表示プロシージャ群】
+' エラー処理と、ユーザーへの結果通知を担当します。
 '===============================================================================
 
 '===============================================================================
-' �y�@�\���z�����V�[�g�̃G���[�\���N���A
-' �y�T�v�z  �����J�n���ɁA�����V�[�g�̃G���[���b�Z�[�W�\���Z���iI1�j���N���A���܂��B
+' 【機能名】月次シートのエラー表示クリア
+' 【概要】  処理開始時に、月次シートのエラーメッセージ表示セルをクリアします。
 '===============================================================================
 Private Sub ClearErrorCellOnMonthlySheet()
     On Error Resume Next
     Dim ws As Worksheet
     Set ws = ThisWorkbook.Sheets(MONTHLY_SHEET_NAME)
     If Not ws Is Nothing Then
-        ws.Range("I1").ClearContents
-        ws.Range("I1").WrapText = True
+        ws.Range(ERROR_CELL).ClearContents
+        ws.Range(ERROR_CELL).WrapText = True
     End If
     On Error GoTo 0
 End Sub
 
 '===============================================================================
-' �y�@�\���z�����V�[�g�ւ̃G���[��
-' �y�T�v�z  �G���[�������ɁA�G���[���b�Z�[�W�������V�[�g�̎w��Z���iI1�j�ɕ\�����܂��B
-' �y�����z  message: �\������G���[���b�Z�[�W������
+' 【機能名】月次シートへのエラー報告
+' 【概要】  エラー発生時に、エラーメッセージを月次シートの指定セルに表示します。
+'           追記モードを指定すると、既存メッセージに改行して追加します。
+' 【引数】  message: 表示するエラーメッセージ文字列
+'           append: Trueの場合、既存メッセージに追記する (省略時: False)
 '===============================================================================
-Private Sub ReportErrorToMonthlySheet(ByVal message As String)
+Private Sub ReportErrorToMonthlySheet(ByVal message As String, Optional ByVal append As Boolean = False)
     On Error Resume Next
     Dim ws As Worksheet
     Set ws = ThisWorkbook.Sheets(MONTHLY_SHEET_NAME)
     If Not ws Is Nothing Then
-        With ws.Range("I1")
-            .value = message
-            .WrapText = True ' �������b�Z�[�W�ł����₷���悤�Ɏ����܂�Ԃ�
+        With ws.Range(ERROR_CELL)
+            If append And Len(.value) > 0 Then
+                .value = .value & vbLf & message
+            Else
+                .value = message
+            End If
+            .WrapText = True ' 長いメッセージでも見やすいように自動折り返し
         End With
     End If
     On Error GoTo 0
 End Sub
 
 '===============================================================================
-' �y�@�\���z�J�X�^���G���[�̔���
-' �y�T�v�z  ���̃��W���[���ŗL�̃J�X�^���G���[�𔭐������܂��B
-' �y�����z  errorCode: ����������G���[�̃R�[�h
-'           description: �G���[�̏ڍא���
+' 【機能名】カスタムエラーの発生
+' 【概要】  このモジュール固有のカスタムエラーを発生させます。
+' 【引数】  errorCode: 発生させるエラーのコード
+'           description: エラーの詳細説明
 '===============================================================================
 Private Sub RaiseCustomError(ByVal errorCode As Long, ByVal description As String)
     Err.Raise errorCode, "ModDataTransfer", description
 End Sub
 
 '===============================================================================
-' �y�@�\���z�G���[�ڍ׏��̐���
-' �y�T�v�z  ���������G���[�ԍ��Ɛ��������ɁA���[�U�[�ɂƂ��ĕ�����₷��
-'           �G���[���b�Z�[�W�̑S���𐶐����܂��B
-' �y�����z  errNumber: �G���[�ԍ� (Err.Number)
-'           errDescription: �G���[�̐��� (Err.Description)
-' �y�߂�l�zString: �������ꂽ�ڍׂȃG���[���b�Z�[�W
+' 【機能名】エラー詳細情報の生成
+' 【概要】  発生したエラー番号と説明を元に、ユーザーにとって分かりやすい
+'           エラーメッセージの全文を生成します。
+' 【引数】  errNumber: エラー番号 (Err.Number)
+'           errDescription: エラーの説明 (Err.Description)
+' 【戻り値】String: 生成された詳細なエラーメッセージ
 '===============================================================================
 Private Function GetErrorDetails(ByVal errNumber As Long, ByVal errDescription As String) As String
     Select Case errNumber
         Case ERR_SHEET_NOT_FOUND
-            GetErrorDetails = "�K�v�ȃV�[�g��������܂���: " & errDescription
+            GetErrorDetails = "必要なシートが見つかりません: " & errDescription
         Case ERR_INVALID_DATE
-            GetErrorDetails = "���t�������ł�: " & errDescription
+            GetErrorDetails = "日付が無効です: " & errDescription
         Case ERR_NO_DATA
-            GetErrorDetails = "�]�L����f�[�^������܂���: " & errDescription
+            GetErrorDetails = "転記するデータがありません: " & errDescription
         Case ERR_DATE_NOT_FOUND
-            GetErrorDetails = "�Ώۓ��t�������V�[�g�Ɍ�����܂���: " & errDescription
+            GetErrorDetails = "対象日付が月次シートに見つかりません: " & errDescription
         Case ERR_PROTECTION_FAILED
-            GetErrorDetails = "�V�[�g�ی�̉����Ɏ��s���܂���: " & errDescription
+            GetErrorDetails = "シート保護の解除に失敗しました: " & errDescription
         Case 9 ' Subscript out of range
             GetErrorDetails = FriendlyErrorMessage9(errDescription)
         Case Else
-            GetErrorDetails = "�\�����Ȃ��G���[���������܂��� (�G���[ #" & errNumber & "): " & errDescription
+            GetErrorDetails = "予期しないエラーが発生しました (エラー #" & errNumber & "): " & errDescription
     End Select
 End Function
 
 '===============================================================================
-' �y�@�\���z�G���[#9�̏ڍא���
-' �y�T�v�z  VBA�ŕp������G���[#9�i�C���f�b�N�X���L���͈͂ɂ���܂���j�ɑ΂��āA
-'           �����Ƒ΍����̓I�Ɏ������A������₷�����b�Z�[�W�𐶐����܂��B
-' �y�����z  errDesc: ���̃G���[����
-' �y�߂�l�zString: �������ꂽ�ڍׂȃG���[���b�Z�[�W
+' 【機能名】エラー#9の詳細説明
+' 【概要】  VBAで頻発するエラー#9（インデックスが有効範囲にありません）に対して、
+'           原因と対策を具体的に示した、分かりやすいメッセージを生成します。
+' 【引数】  errDesc: 元のエラー説明
+' 【戻り値】String: 生成された詳細なエラーメッセージ
 '===============================================================================
 Private Function FriendlyErrorMessage9(ByVal errDesc As String) As String
     FriendlyErrorMessage9 = _
-        "�G���[ #9�i�C���f�b�N�X���L���͈͂ɂ���܂���j���������܂����B" & vbCrLf & _
-        "����́A�w�肵�����ڂ�������Ȃ��ꍇ�ɔ�������T�^�I�ȃG���[�ł��B" & vbCrLf & vbCrLf & _
-        "�y�l�����錴���Ƒ΍�z" & vbCrLf & _
-        "1. �V�[�g���̊m�F�F�u�b�N���Ɂu" & DATA_SHEET_NAME & "�v�Ɓu" & MONTHLY_SHEET_NAME & "�v�Ƃ������O�̃V�[�g�����݂��邩�m�F���Ă��������B" & vbCrLf & _
-        "2. �f�[�^�`���̊m�F�F�u�f�[�^�o�^�v�V�[�g�̍�Ԃƍ�ƃR�[�h�����������͂���Ă��邩�m�F���Ă��������B" & vbCrLf & _
-        vbCrLf & "�ڍ׏��: " & errDesc
+        "エラー #9（インデックスが有効範囲にありません）が発生しました。" & vbCrLf & _
+        "これは、指定した項目が見つからない場合に発生する典型的なエラーです。" & vbCrLf & vbCrLf & _
+        "【考えられる原因と対策】" & vbCrLf & _
+        "1. シート名の確認：ブック内に「" & DATA_SHEET_NAME & "」と「" & MONTHLY_SHEET_NAME & "」という名前のシートが存在するか確認してください。" & vbCrLf & _
+        "2. データ形式の確認：「データ登録」シートの作番と作業コードが正しく入力されているか確認してください。" & vbCrLf & _
+        vbCrLf & "詳細情報: " & errDesc
 End Function
 
 '===============================================================================
-' �y�@�\���z�]�L���ʂ̕\��
-' �y�T�v�z  ����������A�����E���s�ɉ����Č��ʂ̃T�}���[�����b�Z�[�W�{�b�N�X�ŕ\�����܂��B
-' �y�����z  result: �������ʂ��i�[����ProcessResult�\����
+' 【機能名】転記結果の表示
+' 【概要】  処理完了後、成功・失敗に応じて結果のサマリーをメッセージボックスで表示します。
+' 【引数】  result: 処理結果を格納したProcessResult構造体
 '===============================================================================
 Private Sub ShowTransferResults(ByRef result As ProcessResult)
-    ' --- �ϐ��錾 ---
+    ' --- 変数宣言 ---
     Dim message As String
 
     If result.Success Then
-        ' --- �������̃��b�Z�[�W���\�� ---
-        message = "�]�L�������������܂����B" & vbCrLf & vbCrLf & _
-                  "��������: " & result.ProcessedCount & " ��" & vbCrLf
+        ' --- 成功時のメッセージを構成 ---
+        message = "転記処理が完了しました。" & vbCrLf & vbCrLf & _
+                  "処理件数: " & result.ProcessedCount & " 件" & vbCrLf
 
-        ' �d�����������ꍇ�̂ݏ���ǉ�
+        ' 重複があった場合のみ情報を追加
         If result.DuplicateCount > 0 Then
-            message = message & "�d�����m: " & result.DuplicateCount & " ���i�ڍׂ͉��F�n�C���C�g��A�񃁃b�Z�[�W���m�F�j" & vbCrLf
+            ' ERROR_CELL定数を参照するようにメッセージを修正
+            message = message & "重複検知: " & result.DuplicateCount & " 件（詳細は月次データを確認）" & vbCrLf
         End If
 
-        ' �V�K�񂪒ǉ����ꂽ�ꍇ�̂ݏ���ǉ�
+        ' 新規列が追加された場合のみ情報を追加
         If result.NewColumnsAdded > 0 Then
-            message = message & "�V�K��ǉ�: " & result.NewColumnsAdded & " ��" & vbCrLf
+            message = message & "新規列追加: " & result.NewColumnsAdded & " 列" & vbCrLf
         End If
 
-        ' ���̑��̃��b�Z�[�W������ꍇ�ɒǉ�
+        ' その他のメッセージがある場合に追加
         If Len(result.Messages) > 0 Then
-            message = message & vbCrLf & "���b�Z�[�W:" & vbCrLf & result.Messages
+            message = message & vbCrLf & "メッセージ:" & vbCrLf & result.Messages
         End If
 
-        ' ���_�C�A���O��\��
-        MsgBox message, vbInformation, "�]�L����"
+        ' 情報ダイアログを表示
+        MsgBox message, vbInformation, "転記完了"
 
     Else
-        ' --- ���~�E���s���̃��b�Z�[�W���\�� ---
-        message = "�]�L���������~����܂����B"
+        ' --- 中止・失敗時のメッセージを構成 ---
+        message = "転記処理が中止されました。"
         If Len(result.Messages) > 0 Then
             message = message & vbCrLf & vbCrLf & result.Messages
         End If
 
-        ' �x���_�C�A���O��\��
-        MsgBox message, vbExclamation, "�������~"
+        ' 警告ダイアログを表示
+        MsgBox message, vbExclamation, "処理中止"
     End If
 End Sub
-
-'===============================================================================
-' �y���W���[���I���z
-' 
-' �y�g�p���@�z
-' 1. ���̃��W���[����VBA�v���W�F�N�g�ɃC���|�[�g
-' 2. TransferDataToMonthlySheet() �����s
-' 3. �K�v�ɉ����Ē萔�Z�N�V�����̐ݒ�����ɍ��킹�Ē���
-' 
-' �y�J�X�^�}�C�Y�|�C���g�z
-' �E�V�[�g���FDATA_SHEET_NAME, MONTHLY_SHEET_NAME
-' �E�Z���ʒu�FDATE_CELL_PRIORITY, DATE_CELL_NORMAL
-' �E�s��ԍ��F�e�� _ROW, _COL �萔
-' �E����ݒ�FAUTO_ADD_POLICY, DRY_RUN
-' 
-' �y���ӎ����z
-' �EExcel 2016�ȍ~�AWindows 11�ł̓����z��
-' �E�V�[�g�ی삪����ꍇ�͉����p�X���[�h���K�v
-' �E��ʃf�[�^�������͉�ʍX�V��~�ɂ�荂����
-'===============================================================================
