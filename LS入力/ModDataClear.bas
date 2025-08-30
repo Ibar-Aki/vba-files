@@ -9,7 +9,6 @@ Option Explicit
 ' ・ユーザーに確認ダイアログを表示後、対象範囲のデータを一括でクリア
 ' ・処理中の画面更新やイベントを停止し、高速かつ安全に実行
 ' ・シート保護されている場合は、パスワードを要求して一時的に解除し、処理後に再保護
-
 '===============================================================================
 
 
@@ -71,7 +70,7 @@ Public Sub ClearInputData()
     ' --- ステップ2：ユーザーへの最終確認 ---
     If MsgBox( _
         "「" & ACQUISITION_SHEET_NAME & "」「" & DATA_SHEET_NAME & "」の入力値をクリアします。" & vbCrLf & _
-        "よろしいですか。", _
+        "よろしいですか？", _
         vbYesNo + vbQuestion + vbDefaultButton2, "クリアの確認") = vbNo Then
         GoTo CleanUp ' 「いいえ」が選択された場合は後処理へ
     End If
@@ -97,7 +96,7 @@ Public Sub ClearInputData()
     wsData.Range(DATE_CELL_WORKTIME).ClearContents
 
     ' --- ステップ6：完了メッセージの表示 ---
-    MsgBox "入力値をクリアしました。", vbInformation, "完了"
+    MsgBox "クリア完了", vbInformation, "完了"
 
 CleanUp:
     ' --- 最終処理：シート保護とExcel状態を元に戻す ---

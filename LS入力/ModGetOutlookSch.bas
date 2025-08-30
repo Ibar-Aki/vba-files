@@ -1,6 +1,4 @@
-Attribute VB_Name = "ModGetOutlookSch"
 Option Explicit
-
 '===============================================================================
 ' ÉÇÉWÉÖÅ[Éãñº: ModGetOutlookSch
 '
