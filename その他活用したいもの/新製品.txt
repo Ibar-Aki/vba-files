@@ -1,1 +1,4 @@
 ・Pandoc：mdやpdfやwordを行き来する。
+・qpdf　：安全かつ簡単なPDF操作
+・VScode
+・Crome拡張機能

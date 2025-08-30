@@ -1,4 +1,4 @@
-﻿'===============================================================================
+'===============================================================================
 ' モジュール名: ModDataTransfer
 '
 ' 【概要】      「データ登録」シートから「月次データ」シートへ、日々の作業時間データを
@@ -80,7 +80,6 @@ Private Const MAX_MINUTES_PER_HOUR As Long = 60       ' 1時間あたりの最�
 
 ' --- 動作設定・書式定数 ---
 Private Const KEY_SEPARATOR As String = "|"              ' 内部処理で「作業コード」と「作番」を連結する際の区切り文字
-Private Const MESSAGE_SEPARATOR As String = vbLf         ' メッセージセル内で複数のメッセージを区切る改行文字
 Private Const TIME_FORMAT As String = "[hh]:mm"          ' Excelセルに設定する時間書式（24時間以上表示対応）
 Private Const DATE_FORMAT As String = "yyyy/mm/dd(aaa)"  ' メッセージ表示用の日付書式
 Private Const PREVIEW_TAB As String = vbTab              ' 確認ダイアログのプレビュー表示で使用するタブ文字
@@ -325,13 +324,13 @@ Private Function DetermineTargetDate(ByRef wsData As Worksheet, ByRef targetDate
     DetermineTargetDate = False
 
     ' --- 優先セル（D4）から日付取得を試行 ---
-    If IsDate(wsData.Range(DATE_CELL_PRIORITY).value) Then
-        targetDate = CDate(wsData.Range(DATE_CELL_PRIORITY).value)
+    If IsDate(wsData.Range(DATE_CELL_PRIORITY).Value) Then
+        targetDate = CDate(wsData.Range(DATE_CELL_PRIORITY).Value)
         DetermineTargetDate = True
 
     ' --- 優先セルが空の場合、通常セル（D3）から日付取得を試行 ---
-    ElseIf IsDate(wsData.Range(DATE_CELL_NORMAL).value) Then
-        targetDate = CDate(wsData.Range(DATE_CELL_NORMAL).value)
+    ElseIf IsDate(wsData.Range(DATE_CELL_NORMAL).Value) Then
+        targetDate = CDate(wsData.Range(DATE_CELL_NORMAL).Value)
         DetermineTargetDate = True
 
     ' --- 両方のセルから有効な日付が取得できない場合はエラー ---
@@ -426,9 +425,9 @@ Private Function CollectTimeDataFromSheet(ByRef wsData As Worksheet) As collecti
     ' --- データ開始行から最終行までループ ---
     For r = DATA_START_ROW To lastRow
         ' --- 各列の値を取得し、不要な空白を除去 ---
-        workNo = Trim$(CStr(wsData.Cells(r, COL_WORKNO).value))
-        category = Trim$(CStr(wsData.Cells(r, COL_CATEGORY).value))
-        minutes = ConvertToMinutesEx(wsData.Cells(r, COL_TIME).value) ' 様々な時間形式を分数に統一
+        workNo = Trim$(CStr(wsData.Cells(r, COL_WORKNO).Value))
+        category = Trim$(CStr(wsData.Cells(r, COL_CATEGORY).Value))
+        minutes = ConvertToMinutesEx(wsData.Cells(r, COL_TIME).Value) ' 様々な時間形式を分数に統一
 
         ' --- 有効性チェック：作番、作業コードが入力され、時間が0より大きい場合のみ対象 ---
         If (workNo <> "") And (category <> "") And (minutes > 0) Then
@@ -504,8 +503,8 @@ Private Sub BuildColumnMapping(ByRef wsMonthly As Worksheet, ByRef lastColOut As
     ' --- データ開始列から最終列までループ ---
     For c = MONTHLY_MIN_COL To lastCol
         ' --- ヘッダ情報（作業コードと作番）を取得 ---
-        categoryName = Trim$(CStr(wsMonthly.Cells(MONTHLY_HEADER_ROW, c).value))
-        workNoName = Trim$(CStr(wsMonthly.Cells(MONTHLY_WORKNO_ROW, c).value))
+categoryName = Trim$(CStr(wsMonthly.Cells(MONTHLY_HEADER_ROW, c).Value))
+workNoName = Trim$(CStr(wsMonthly.Cells(MONTHLY_WORKNO_ROW, c).Value))
 
         ' --- 有効な列のみマッピングに登録 ---
         ' ※作業コードが空の列は無視する
@@ -694,8 +693,8 @@ Private Function CreateNewColumn( _
     newCol = lastCol + 1
 
     ' --- ヘッダ情報（作業コードと作番）を設定 ---
-    wsMonthly.Cells(MONTHLY_HEADER_ROW, newCol).value = category
-    wsMonthly.Cells(MONTHLY_WORKNO_ROW, newCol).value = workNo
+wsMonthly.Cells(MONTHLY_HEADER_ROW, newCol).Value = category
+wsMonthly.Cells(MONTHLY_WORKNO_ROW, newCol).Value = workNo
 
     ' --- 既存の列から書式（列幅、色、配置など）をコピー ---
     ApplyColumnFormatting wsMonthly, newCol, IIf(lastCol >= MONTHLY_MIN_COL, lastCol, MONTHLY_MIN_COL)
@@ -807,7 +806,7 @@ Private Sub WriteTimeDataToCell( _
     Dim dupMsg As String                ' 重複メッセージ
 
     ' --- 既存値のチェック ---
-    existingValue = NzD(wsMonthly.Cells(targetRow, targetCol).value, 0#) ' Nullやエラーを安全に0に変換
+    existingValue = NzD(wsMonthly.Cells(targetRow, targetCol).Value, 0#) ' Nullやエラーを安全に0に変換
     newValue = MinutesToSerial(minutes) ' 分数をExcelのシリアル値に変換
     isDup = (existingValue <> 0#)       ' 0以外の値が既にあれば重複と判断
 
@@ -818,19 +817,18 @@ Private Sub WriteTimeDataToCell( _
         ' セルを黄色でハイライト
         HighlightDuplicateCell wsMonthly.Cells(targetRow, targetCol)
 
-        ' ★★★ 変更点: I1セルに記録する重複メッセージを生成 ★★★
+        ' 記録する重複メッセージを生成
         dupMsg = "登録日: " & Format$(targetDate, DATE_FORMAT) & " | 既存値検出: [" & _
-                 CStr(wsMonthly.Cells(MONTHLY_WORKNO_ROW, targetCol).value) & "|" & _
-                 CStr(wsMonthly.Cells(MONTHLY_HEADER_ROW, targetCol).value) & "] 旧=" & _
+                 CStr(wsMonthly.Cells(MONTHLY_WORKNO_ROW, targetCol).Value) & "|" & _
+                 CStr(wsMonthly.Cells(MONTHLY_HEADER_ROW, targetCol).Value) & "] 旧=" & _
                  SerialToHHMMString(existingValue)
         
-        ' ★★★ 変更点: I1セルに重複メッセージを追記 ★★★
         ReportErrorToMonthlySheet dupMsg, True
     End If
 
     ' --- セルへの値書き込み（常に上書き）---
     With wsMonthly.Cells(targetRow, targetCol)
-        .value = newValue
+        .Value = newValue
         .NumberFormatLocal = TIME_FORMAT
     End With
 End Sub
@@ -1137,8 +1135,8 @@ Private Function FindMatchingDateRow(ByRef wsMonthly As Worksheet, ByVal targetD
 
     ' --- データ開始行から最終行までループ ---
     For r = MONTHLY_DATA_START_ROW To lastRow
-        If IsDate(wsMonthly.Cells(r, COL_DATE).value) Then
-            d = CDate(wsMonthly.Cells(r, COL_DATE).value)
+        If IsDate(wsMonthly.Cells(r, COL_DATE).Value) Then
+            d = CDate(wsMonthly.Cells(r, COL_DATE).Value)
             ' ※重要：時間は無視し、日付部分のみで比較
             If Int(d) = Int(targetDate) Then
                 FindMatchingDateRow = r: Exit Function ' 一致した行が見つかったら即座に終了
@@ -1308,10 +1306,10 @@ Private Sub ReportErrorToMonthlySheet(ByVal message As String, Optional ByVal ap
     Set ws = ThisWorkbook.Sheets(MONTHLY_SHEET_NAME)
     If Not ws Is Nothing Then
         With ws.Range(ERROR_CELL)
-            If append And Len(.value) > 0 Then
-                .value = .value & vbLf & message
+            If append And Len(.Value) > 0 Then
+                .Value = .Value & vbLf & message
             Else
-                .value = message
+                .Value = message
             End If
             .WrapText = True ' 長いメッセージでも見やすいように自動折り返し
         End With
