@@ -70,7 +70,7 @@ Private Const COL_TIME     As Long = 5   ' E列：作業時間
 Private Const COL_DATE     As Long = 2   ' B列：日付列
 Private Const MONTHLY_WORKNO_ROW As Long = 10       ' 作番が記載されている行
 Private Const MONTHLY_HEADER_ROW As Long = 11      ' 作業コードが記載されている行
-Private Const MONTHLY_DATA_START_ROW As Long = 11  ' データ記録範囲の開始行
+Private Const MONTHLY_DATA_START_ROW As Long = 12  ' データ記録範囲の開始行
 Private Const MONTHLY_MIN_COL    As Long = 3       ' データ記録範囲の最小列（C列）
 
 ' --- 時間計算関連定数 ---
