@@ -19,7 +19,7 @@ Private Const COL_DATE               As Long = 2   ' B列: 日付列
 Private Const MONTHLY_MIN_COL        As Long = 3   ' C列以降が作業列
 Private Const MONTHLY_HEADER_ROW     As Long = 11  ' 見出し（作業コードなど）の行
 Private Const MONTHLY_DATA_START_ROW As Long = 12  ' データ開始行
-Private Const ERROR_CELL             As String = "J3" ' エラー表示セル
+ ' エラー表示セルは共通定数 ERR_CELL_ADDR を使用（ModAppConfig.bas）
 
 '===============================================================================
 ' 機能名: 月次データの全クリア＋カレンダー更新
@@ -55,8 +55,8 @@ Public Sub ClearMonthlyDataAndRefreshCalendar()
 
     ' --- 実行前にエラー表示セルをクリア（存在すれば） ---
     On Error Resume Next
-    wsMonthly.Range(ERROR_CELL).ClearContents
-    wsMonthly.Range(ERROR_CELL).WrapText = True
+    wsMonthly.Range(ERR_CELL_ADDR).ClearContents
+    wsMonthly.Range(ERR_CELL_ADDR).WrapText = True
     On Error GoTo ErrorHandler
 
     ' --- 保護の一時解除 ---
@@ -79,8 +79,8 @@ Public Sub ClearMonthlyDataAndRefreshCalendar()
 
     ' --- 対象日（D4優先→D3）取得 ---
     If Not DetermineTargetDateLocal(wsData, targetDate) Then
-        ReportErrorToMonthlySheetLocal wsMonthly, _
-            "対象日付が取得できません（D4 または D3 を設定してください）", True
+    ReportErrorToMonthlySheetLocal wsMonthly, _
+        "対象日付が取得できません（D4 または D3 を設定してください）", True
         GoTo CleanUp
     End If
 
@@ -121,7 +121,7 @@ CleanUp:
     Exit Sub
 
 ErrorHandler:
-    ' --- 簡易エラー報告（I1に追記） ---
+    ' --- 簡易エラー報告（J3に追記） ---
     On Error Resume Next
     ReportErrorToMonthlySheetLocal wsMonthly, _
         "月次クリア/カレンダー更新エラー: " & Err.Description, True
@@ -198,13 +198,13 @@ Private Function DetermineTargetDateLocal(ByRef wsData As Worksheet, ByRef targe
 End Function
 
 '-------------------------------------------------------------------------------
-' 機能名: エラーメッセージの表示（I1）。append=True で追記
+' 機能名: エラーメッセージの表示（J3）。append=True で追記
 ' 引数  : wsMonthly（月次シート）、message（表示内容）、append（追記フラグ）
 '-------------------------------------------------------------------------------
 Private Sub ReportErrorToMonthlySheetLocal(ByRef wsMonthly As Worksheet, ByVal message As String, Optional ByVal append As Boolean = False)
     On Error Resume Next
     If wsMonthly Is Nothing Then Exit Sub
-    With wsMonthly.Range(ERROR_CELL)
+    With wsMonthly.Range(ERR_CELL_ADDR)
         If append And Len(.Value) > 0 Then
             .Value = CStr(.Value) & vbLf & message
         Else

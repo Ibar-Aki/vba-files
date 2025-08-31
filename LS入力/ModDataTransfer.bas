@@ -58,7 +58,7 @@ Private Const MONTHLY_SHEET_NAME     As String = "月次データ"    ' 転記�
 ' --- 重要セル位置定数 ---
 Private Const DATE_CELL_PRIORITY As String = "D4"  ' 転記日付セル（最優先でこのセルの日付を使用）
 Private Const DATE_CELL_NORMAL   As String = "D3"  ' 転記日付セル（D4が空の場合に使用）
-Private Const ERROR_CELL         As String = "J3"  ' エラーメッセージを表示するセル
+ ' エラーメッセージ表示セルは共通定数 ERR_CELL_ADDR（ModAppConfig.bas）を使用
 
 ' --- 行・列番号定数（データ登録シート）---
 Private Const DATA_START_ROW     As Long = 8       ' データ入力範囲の開始行
@@ -1287,8 +1287,8 @@ Private Sub ClearErrorCellOnMonthlySheet()
     Dim ws As Worksheet
     Set ws = ThisWorkbook.Sheets(MONTHLY_SHEET_NAME)
     If Not ws Is Nothing Then
-        ws.Range(ERROR_CELL).ClearContents
-        ws.Range(ERROR_CELL).WrapText = True
+        ws.Range(ERR_CELL_ADDR).ClearContents
+        ws.Range(ERR_CELL_ADDR).WrapText = True
     End If
     On Error GoTo 0
 End Sub
@@ -1305,7 +1305,7 @@ Private Sub ReportErrorToMonthlySheet(ByVal message As String, Optional ByVal ap
     Dim ws As Worksheet
     Set ws = ThisWorkbook.Sheets(MONTHLY_SHEET_NAME)
     If Not ws Is Nothing Then
-        With ws.Range(ERROR_CELL)
+        With ws.Range(ERR_CELL_ADDR)
             If append And Len(.Value) > 0 Then
                 .Value = .Value & vbLf & message
             Else
