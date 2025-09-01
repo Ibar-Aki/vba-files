@@ -1,4 +1,4 @@
-'===============================================================================
+﻿'===============================================================================
 ' モジュール名: ModDataTransfer
 '
 ' 【概要】      「データ登録」シートから「月次データ」シートへ、日々の作業時間データを
@@ -238,9 +238,18 @@ Private Function InitializeTransferConfig( _
     ' --- ステップ4：月次シートから対象日付と一致する行を検索 ---
     config.targetRow = FindMatchingDateRow(wsMonthly, config.targetDate)
     If config.targetRow = 0 Then
-        ' 一致する日付が見つからない場合はカスタムエラーを発生
-        RaiseCustomError ERR_DATE_NOT_FOUND, Format$(config.targetDate, DATE_FORMAT)
-        Exit Function
+        Dim ret As VbMsgBoxResult
+        ret = MsgBox("対象日付が見つかりませんでした。" & vbCrLf & _
+                     "月次データをクリアし、カレンダーを更新しますか？", _
+                     vbYesNo + vbQuestion, "日付未検出")
+        If ret = vbYes Then
+            ClearMonthlyDataAndRefreshCalendar False
+            config.targetRow = FindMatchingDateRow(wsMonthly, config.targetDate)
+        End If
+        If config.targetRow = 0 Then
+            RaiseCustomError ERR_DATE_NOT_FOUND, Format$(config.targetDate, DATE_FORMAT)
+            Exit Function
+        End If
     End If
 
     ' --- ステップ5：定数から動作設定を読み込み ---
@@ -1122,27 +1131,65 @@ End Function
 ' 【戻り値】Long: 一致した行の番号。見つからない場合は0を返す。
 '===============================================================================
 Private Function FindMatchingDateRow(ByRef wsMonthly As Worksheet, ByVal targetDate As Date) As Long
-    ' --- 変数宣言 ---
-    Dim lastRow As Long, r As Long     ' ループ用の行変数
-    Dim d As Date                      ' 各行から読み取った日付
+    Dim lastRow As Long
+    Dim searchRange As Range
+    Dim foundCell As Range
+    Dim r As Long
+    Dim s As String
+    Dim y As Long, m As Long, d As Long
+    Dim dt As Date
 
-    ' --- 戻り値の初期化 ---
     FindMatchingDateRow = 0
 
-    ' --- 日付列の最終行を取得 ---
-    lastRow = wsMonthly.Cells(wsMonthly.rows.Count, COL_DATE).End(xlUp).Row
-    If lastRow < MONTHLY_DATA_START_ROW Then Exit Function ' データが存在しない場合
+    lastRow = wsMonthly.Cells(wsMonthly.Rows.Count, COL_DATE).End(xlUp).Row
+    If lastRow < MONTHLY_DATA_START_ROW Then Exit Function
 
-    ' --- データ開始行から最終行までループ ---
+    Set searchRange = wsMonthly.Range(wsMonthly.Cells(MONTHLY_DATA_START_ROW, COL_DATE), _
+                                      wsMonthly.Cells(lastRow, COL_DATE))
+    On Error Resume Next
+    Set foundCell = searchRange.Find(What:=Int(targetDate), LookIn:=xlValues, LookAt:=xlWhole)
+    On Error GoTo 0
+    If Not foundCell Is Nothing Then
+        FindMatchingDateRow = foundCell.Row
+        Exit Function
+    End If
+
+    ' Fallback: parse text like "m/d(aaa)" or "yyyy/m/d" in display text
     For r = MONTHLY_DATA_START_ROW To lastRow
-        If IsDate(wsMonthly.Cells(r, COL_DATE).Value) Then
-            d = CDate(wsMonthly.Cells(r, COL_DATE).Value)
-            ' ※重要：時間は無視し、日付部分のみで比較
-            If Int(d) = Int(targetDate) Then
-                FindMatchingDateRow = r: Exit Function ' 一致した行が見つかったら即座に終了
+        s = CStr(wsMonthly.Cells(r, COL_DATE).Text)
+        If Len(s) > 0 Then
+            If InStr(s, "(") > 0 Then s = Left$(s, InStr(s, "(") - 1)
+            s = Trim$(s)
+            s = Replace(s, "年", "/")
+            s = Replace(s, "月", "/")
+            s = Replace(s, "日", "")
+            s = Replace(s, "／", "/")
+            Dim parts() As String
+            parts = Split(s, "/")
+            If UBound(parts) = 1 Then
+                y = Year(targetDate)
+                m = Val(parts(0))
+                d = Val(parts(1))
+            ElseIf UBound(parts) = 2 Then
+                y = Val(parts(0))
+                m = Val(parts(1))
+                d = Val(parts(2))
+            Else
+                m = 0
+            End If
+            If m > 0 And d > 0 Then
+                On Error Resume Next
+                dt = DateSerial(y, m, d)
+                On Error GoTo 0
+                If dt <> 0 Then
+                    If Int(dt) = Int(targetDate) Then
+                        FindMatchingDateRow = r
+                        Exit Function
+                    End If
+                End If
             End If
         End If
-    Next
+    Next r
 End Function
 
 '===============================================================================
@@ -1415,3 +1462,4 @@ Private Sub ShowTransferResults(ByRef result As ProcessResult)
         MsgBox message, vbExclamation, "処理中止"
     End If
 End Sub
+
