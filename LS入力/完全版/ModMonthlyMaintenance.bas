@@ -22,8 +22,10 @@ Option Explicit
 ' 概要  : 月次シートの転記データ（値/時間）を全消去し、塗りつぶしも解除します。
 '         その後、「データ登録」シートの対象日（D4優先→D3）と同じ月で、
 '         B列にカレンダー（日付）を再作成します。実行前に確認ダイアログを表示します。
+' 引数  : showConfirm - True の場合は処理前に確認ダイアログを表示します。
+'         False の場合は確認を省略します。
 '===============================================================================
-Public Sub ClearMonthlyDataAndRefreshCalendar()
+Public Sub ClearMonthlyDataAndRefreshCalendar(Optional ByVal showConfirm As Boolean = True)
     Dim appState As ApplicationState
 
     Dim wsMonthly As Worksheet
@@ -80,11 +82,14 @@ Public Sub ClearMonthlyDataAndRefreshCalendar()
     ClearAllMonthlyTransferArea wsMonthly, lastDayRow
 
     ' --- カレンダー更新の確認 ---
-    ret = MsgBox( _
-        "対象月のカレンダー（日付列）を更新します。" & vbCrLf & _
-        "対象月: " & Format$(targetDate, "m/dd(aaa)") & vbCrLf & vbCrLf & _
-        "よろしいですか？", _
-        vbYesNo + vbQuestion, "カレンダー更新の確認")
+    ret = vbYes
+    If showConfirm Then
+        ret = MsgBox( _
+            "対象月のカレンダー（日付列）を更新します。" & vbCrLf & _
+            "対象月: " & Format$(targetDate, "m/dd(aaa)") & vbCrLf & vbCrLf & _
+            "よろしいですか？", _
+            vbYesNo + vbQuestion, "カレンダー更新の確認")
+    End If
     If ret <> vbYes Then GoTo CleanUp
 
     ' --- カレンダー更新 ---

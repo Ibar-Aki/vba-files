@@ -114,3 +114,38 @@ Public Sub ReportErrorToMonthlySheet(ByVal message As String, Optional ByVal app
     On Error GoTo 0
 End Sub
 
+'-------------------------------------------------------------------------------
+' 機能名: 月次シートのエラーセルをクリア
+' 引数  : なし
+'-------------------------------------------------------------------------------
+Public Sub ClearErrorCellOnMonthlySheet()
+    Dim wsMonthly As Worksheet
+    On Error Resume Next
+    Set wsMonthly = GetSheet(Sheet_Monthly)
+    If wsMonthly Is Nothing Then Exit Sub
+    wsMonthly.Range(ERR_CELL_ADDR).ClearContents
+    On Error GoTo 0
+End Sub
+
+'-------------------------------------------------------------------------------
+' 機能名: エラー詳細メッセージの取得
+' 引数  : errNo（発生したエラー番号）, errDesc（エラー内容）
+' 戻り値: 整形したエラーメッセージ
+'-------------------------------------------------------------------------------
+Public Function GetErrorDetails(ByVal errNo As Long, ByVal errDesc As String) As String
+    Dim displayNo As Long
+    Dim msg As String
+
+    If errNo <= vbObjectError Then
+        displayNo = errNo - vbObjectError
+    Else
+        displayNo = errNo
+    End If
+
+    msg = "エラー番号: " & CStr(displayNo)
+    If Len(errDesc) > 0 Then
+        msg = msg & vbCrLf & "内容: " & errDesc
+    End If
+    GetErrorDetails = msg
+End Function
+

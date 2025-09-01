@@ -327,7 +327,7 @@ End Sub
 '           Excelのボタンなどに登録することを想定したエントリーポイント。
 '===============================================================================
 Public Sub ExecuteOutlookSchedule()
-    Call GetOutlookSchedule
+    Call GetOutlookSchedule()
 End Sub
 
 '===============================================================================

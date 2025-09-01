@@ -61,7 +61,7 @@ Private Sub Worksheet_BeforeDoubleClick(ByVal Target As Range, Cancel As Boolean
     Call SetClearRange(targetRow, clearRange)
 
     ' 必要に応じてシート保護を一時解除
-    Call UnprotectSheet
+    Call UnprotectSheet()
 
     ' ※重要：イベントの連鎖や意図しない再帰呼び出しを防ぐため、イベントを一時的に無効化
     Application.EnableEvents = False
@@ -79,7 +79,7 @@ ErrorHandler:
 ' --- 共通後処理 ---
 CleanUp:
     Application.EnableEvents = True
-    Call ProtectSheet
+    Call ProtectSheet()
 End Sub
 
 '===============================================================================

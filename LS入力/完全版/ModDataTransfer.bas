@@ -85,6 +85,15 @@ Private Const AddPolicy_Reject As Long = 2  ' 新規列の追加を許可しな�
 ' --- 開発・デバッグ用定数 ---
 Private Const AUTO_ADD_POLICY As Long = AddPolicy_Prompt   ' 通常運用時の列追加ポリシー
 Private Const DRY_RUN         As Boolean = False           ' Trueにすると、実際の書き込みを行わないテストモードで実行
+' --- メッセージ表示定数 ---
+Private Const RESULT_MSG_TITLE    As String = "転記結果"
+Private Const RESULT_MSG_SUCCESS  As String = "転記処理が完了しました。"
+Private Const RESULT_MSG_FAILURE  As String = "転記処理で問題が発生しました。"
+Private Const RESULT_FMT_PROCESSED As String = "処理件数: "
+Private Const RESULT_FMT_DUPLICATE As String = "重複件数: "
+Private Const RESULT_FMT_NEWCOL    As String = "新規列追加数: "
+Private Const RESULT_FMT_ERROR     As String = "エラー件数: "
+
 
 '===============================================================================
 ' 【カスタムエラー定数セクション】
@@ -122,6 +131,16 @@ Private Type ProcessResult
     Messages        As String    ' ユーザーへの通知メッセージ
     Success         As Boolean   ' 処理全体の成功フラグ (True/False)
 End Type
+
+'===============================================================================
+' 【補助処理】カスタムエラーの発生
+' 【概要】  指定されたエラーコードとメッセージでVBA標準のエラーを発生させます。
+' 【引数】  errCode: エラーコード
+'           errMessage: エラーメッセージ
+'===============================================================================
+Public Sub RaiseCustomError(ByVal errCode As Long, ByVal errMessage As String)
+    Err.Raise errCode, , errMessage
+End Sub
 
 '===============================================================================
 ' 【メイン処理】
@@ -173,6 +192,9 @@ ErrorHandler:
     Dim emsg As String
     ' エラー情報を分かりやすいメッセージに変換
     emsg = GetErrorDetails(Err.Number, Err.description)
+    ' エラー件数とメッセージを記録
+    result.ErrorCount = result.ErrorCount + 1
+    result.Messages = result.Messages & emsg & vbCrLf
     ' 月次シートの指定セルにエラーメッセージを表示
     ReportErrorToMonthlySheet emsg
     ' ★★★ 変更点：エラー内容をメッセージボックスでも表示 ★★★
@@ -218,9 +240,22 @@ Private Function InitializeTransferConfig( _
     ' --- ステップ4：月次シートから対象日付と一致する行を検索 ---
     config.targetRow = FindMatchingDateRow(wsMonthly, config.targetDate)
     If config.targetRow = 0 Then
-        ' 一致する日付が見つからない場合はカスタムエラーを発生
-        RaiseCustomError ERR_DATE_NOT_FOUND, Format$(config.targetDate, DATE_FORMAT)
-        Exit Function
+        Dim ret As VbMsgBoxResult
+        ret = MsgBox( _
+            "月次データに対象日が見つかりません。" & vbCrLf & _
+            "月次データをクリアし、" & _
+            Format$(config.targetDate, "yyyy年m月") & _
+            "のカレンダーで更新しますか？", _
+            vbYesNo + vbQuestion, "月次データ更新の確認")
+        If ret = vbYes Then
+            Call ClearMonthlyDataAndRefreshCalendar(False)
+            Set wsMonthly = GetSheet(Sheet_Monthly)
+            config.targetRow = FindMatchingDateRow(wsMonthly, config.targetDate)
+        End If
+        If config.targetRow = 0 Then
+            RaiseCustomError ERR_DATE_NOT_FOUND, "指定した日付が月次データシートに存在しません: " & Format$(config.targetDate, DATE_FORMAT)
+            Exit Function
+        End If
     End If
 
     ' --- ステップ5：定数から動作設定を読み込み ---
@@ -308,6 +343,7 @@ Private Sub ExecuteDataTransfer( _
     ByRef wsData As Worksheet, _
     ByRef wsMonthly As Worksheet, _
     ByRef result As ProcessResult)
+    On Error GoTo ErrHandler
 
     ' --- 変数宣言 ---
     Dim items As collection              ' 収集データ：各要素は Array(WorkNo, Category, Minutes, RowIndex)
@@ -351,6 +387,12 @@ Private Sub ExecuteDataTransfer( _
 
     ' --- 処理成功フラグを設定 ---
     result.Success = True
+    Exit Sub
+
+ErrHandler:
+    result.ErrorCount = result.ErrorCount + 1
+    result.Messages = result.Messages & "[ExecuteDataTransfer] " & Err.Description & vbCrLf
+    result.Success = False
 End Sub
 
 '===============================================================================
@@ -410,13 +452,15 @@ Private Function AggregateTimeData(ByRef items As collection) As Object
         v = items(i) ' 配列 [WorkNo, Category, Minutes, RowIndex] を取得
 
         ' --- キーを「作業コード|作番」の形式で生成 ---
-        key = CStr(v(2)) & KEY_SEPARATOR & CStr(v(1))
+        ' Array 関数は 0 始まりで要素を格納するため、
+        ' インデックス 1 が「作業コード」、インデックス 0 が「作番」となる。
+        key = CStr(v(1)) & KEY_SEPARATOR & CStr(v(0))
 
         ' --- キーの存在に応じて、分数を加算または新規追加 ---
         If dic.Exists(key) Then
-            dic(key) = dic(key) + CDbl(v(3)) ' 既存キー：加算
+            dic(key) = dic(key) + CDbl(v(2)) ' 既存キー：加算
         Else
-            dic.Add key, CDbl(v(3))          ' 新規キー：追加
+            dic.Add key, CDbl(v(2))          ' 新規キー：追加
         End If
     Next
 
@@ -526,6 +570,7 @@ Private Sub WriteAggregatedDataToSheet( _
     ByRef mapDict As Object, _
     ByRef lastCol As Long, _
     ByRef result As ProcessResult)
+    On Error GoTo ErrHandler
 
     ' --- 変数宣言 ---
     Dim key As Variant                  ' ディクショナリのキー
@@ -552,6 +597,12 @@ Private Sub WriteAggregatedDataToSheet( _
             End If
         End If
     Next
+    Exit Sub
+
+ErrHandler:
+    result.ErrorCount = result.ErrorCount + 1
+    result.Messages = result.Messages & "[WriteAggregatedDataToSheet] " & Err.Description & vbCrLf
+    Resume Next
 End Sub
 
 
@@ -580,6 +631,8 @@ Private Function GetOrCreateColumn( _
     ByRef mapDict As Object, _
     ByRef lastCol As Long, _
     ByRef result As ProcessResult) As Long
+
+    On Error GoTo ErrHandler
 
     ' --- 変数宣言 ---
     Dim key As String: key = category & KEY_SEPARATOR & workNo
@@ -613,6 +666,12 @@ Private Function GetOrCreateColumn( _
                 GetOrCreateColumn = 0 ' ユーザーがキャンセル
             End If
     End Select
+    Exit Function
+
+ErrHandler:
+    result.ErrorCount = result.ErrorCount + 1
+    result.Messages = result.Messages & "[GetOrCreateColumn] " & Err.Description & vbCrLf
+    GetOrCreateColumn = 0
 End Function
 
 
@@ -743,6 +802,8 @@ Private Sub WriteTimeDataToCell( _
     ByRef result As ProcessResult, _
     ByVal targetDate As Date)
 
+    On Error GoTo ErrHandler
+
     ' --- 変数宣言 ---
     Dim existingValue As Double         ' セルに既に入力されている値（Excelシリアル値）
     Dim newValue As Double              ' これから書き込む新しい値（Excelシリアル値）
@@ -775,6 +836,11 @@ Private Sub WriteTimeDataToCell( _
         .Value = newValue
         .NumberFormatLocal = TIME_FORMAT
     End With
+    Exit Sub
+
+ErrHandler:
+    result.ErrorCount = result.ErrorCount + 1
+    result.Messages = result.Messages & "[WriteTimeDataToCell] 行" & targetRow & "列" & targetCol & ": " & Err.Description & vbCrLf
 End Sub
 
 '===============================================================================
@@ -813,8 +879,10 @@ Private Sub CopyDataToClipboard(ByRef items As collection, ByRef wsData As Works
 
         ' --- タブ区切り形式の文字列を生成 ---
         ' ※重要：Excelに貼り付けた際の体裁を整えるため、意図的にタブを挿入
-        sb = sb & CStr(v(1)) & vbTab & CStr(v(2)) & vbTab & vbTab & _
-                 CStr(wsData.Cells(CLng(v(4)), DataCol_Time).Text) & vbCrLf
+        ' Array 関数は 0 始まりで要素を格納するため、
+        ' インデックス 0 が「作番」、1 が「作業コード」、3 が元の行番号となる。
+        sb = sb & CStr(v(0)) & vbTab & CStr(v(1)) & vbTab & vbTab & _
+                 CStr(wsData.Cells(CLng(v(3)), DataCol_Time).Text) & vbCrLf
     Next
 
     ' --- 文字列が生成された場合のみ、クリップボードにコピー ---
@@ -1083,6 +1151,14 @@ Private Function FindMatchingDateRow(ByRef wsMonthly As Worksheet, ByVal targetD
         LookIn:=xlValues, _
         LookAt:=xlWhole)
 
+    ' --- Fallback: support date columns stored as formatted text (e.g., "yyyy/mm/dd(aaa)") ---
+    If foundCell Is Nothing Then
+        Set foundCell = wsMonthly.Columns(MonthlyCol_Date).Find( _
+            What:=Format$(targetDate, DATE_FORMAT), _
+            LookIn:=xlValues, _
+            LookAt:=xlWhole)
+    End If
+
     If foundCell Is Nothing Then
         FindMatchingDateRow = 0
     Else
@@ -1112,3 +1188,32 @@ Private Function NzD(ByVal value As Variant, Optional ByVal defaultValue As Doub
 
     On Error GoTo 0
 End Function
+'==============================================================================
+' 【機能名】転記結果の表示
+' 【概要】  転記処理の結果をメッセージボックスで表示します。
+' 【引数】  result: 転記処理の結果を格納したProcessResult構造体
+'==============================================================================
+Private Sub ShowTransferResults(ByRef result As ProcessResult)
+    Dim status As String
+    Dim msg As String
+    Dim style As VbMsgBoxStyle
+
+    If result.Success Then
+        status = RESULT_MSG_SUCCESS
+    Else
+        status = RESULT_MSG_FAILURE
+    End If
+
+    msg = status & vbCrLf & vbCrLf & _
+          RESULT_FMT_PROCESSED & CStr(result.ProcessedCount) & vbCrLf & _
+          RESULT_FMT_DUPLICATE & CStr(result.DuplicateCount) & vbCrLf & _
+          RESULT_FMT_NEWCOL & CStr(result.NewColumnsAdded) & vbCrLf & _
+          RESULT_FMT_ERROR & CStr(result.ErrorCount)
+
+    If result.Messages <> "" Then
+        msg = msg & vbCrLf & vbCrLf & result.Messages
+    End If
+
+    style = vbOKOnly + IIf(result.Success And result.ErrorCount = 0, vbInformation, vbExclamation)
+    MsgBox msg, style, RESULT_MSG_TITLE
+End Sub
