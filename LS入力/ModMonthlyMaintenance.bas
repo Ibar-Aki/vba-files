@@ -1,33 +1,21 @@
-Option Explicit
+﻿Option Explicit
 '
 '===============================================================================
-' モジュール名: ModMonthlyMaintenance
+' 繝｢繧ｸ繝･繝ｼ繝ｫ蜷・ ModMonthlyMaintenance
 '
-' 概要:
-'   月次シートの転記データを一括クリア（値と塗りつぶしを解除）し、
-'   対象月のカレンダー（B列の日付）を更新します。
-'   カレンダー更新は Yes/No の確認ダイアログで実行可否を確認します。
-'
-' 対象環境: Excel 2016+ / Windows
+' 讎りｦ・
+'   譛域ｬ｡繧ｷ繝ｼ繝医・霆｢險倥ョ繝ｼ繧ｿ繧剃ｸ諡ｬ繧ｯ繝ｪ繧｢・亥､縺ｨ蝪励ｊ縺､縺ｶ縺励ｒ隗｣髯､・峨＠縲・'   蟇ｾ雎｡譛医・繧ｫ繝ｬ繝ｳ繝繝ｼ・・蛻励・譌･莉假ｼ峨ｒ譖ｴ譁ｰ縺励∪縺吶・'   繧ｫ繝ｬ繝ｳ繝繝ｼ譖ｴ譁ｰ縺ｯ Yes/No 縺ｮ遒ｺ隱阪ム繧､繧｢繝ｭ繧ｰ縺ｧ螳溯｡悟庄蜷ｦ繧堤｢ｺ隱阪＠縺ｾ縺吶・'
+' 蟇ｾ雎｡迺ｰ蠅・ Excel 2016+ / Windows
 '===============================================================================
 
-' --- シート名・位置など（本モジュール内で使用する定数） ---
-Private Const DATA_SHEET_NAME    As String = "データ登録"   ' 対象日を取得するシート
-Private Const MONTHLY_SHEET_NAME As String = "月次データ"   ' クリア・更新の対象シート
-
-Private Const COL_DATE               As Long = 2   ' B列: 日付列
-Private Const MONTHLY_MIN_COL        As Long = 3   ' C列以降が作業列
-Private Const MONTHLY_HEADER_ROW     As Long = 11  ' 見出し（作業コードなど）の行
-Private Const MONTHLY_DATA_START_ROW As Long = 12  ' データ開始行
- ' エラー表示セルは共通定数 ERR_CELL_ADDR を使用（ModAppConfig.bas）
-
+' --- 繧ｷ繝ｼ繝亥錐繝ｻ菴咲ｽｮ縺ｪ縺ｩ・域悽繝｢繧ｸ繝･繝ｼ繝ｫ蜀・〒菴ｿ逕ｨ縺吶ｋ螳壽焚・・---
+Private Const DATA_SHEET_NAME    As String = "繝・・繧ｿ逋ｻ骭ｲ"   ' 蟇ｾ雎｡譌･繧貞叙蠕励☆繧九す繝ｼ繝・Private Const MONTHLY_SHEET_NAME As String = "譛域ｬ｡繝・・繧ｿ"   ' 繧ｯ繝ｪ繧｢繝ｻ譖ｴ譁ｰ縺ｮ蟇ｾ雎｡繧ｷ繝ｼ繝・
+Private Const COL_DATE               As Long = 2   ' B蛻・ 譌･莉伜・
+Private Const MONTHLY_MIN_COL        As Long = 3   ' C蛻嶺ｻ･髯阪′菴懈･ｭ蛻・Private Const MONTHLY_HEADER_ROW     As Long = 11  ' 隕句・縺暦ｼ井ｽ懈･ｭ繧ｳ繝ｼ繝峨↑縺ｩ・峨・陦・Private Const MONTHLY_DATA_START_ROW As Long = 12  ' 繝・・繧ｿ髢句ｧ玖｡・ ' 繧ｨ繝ｩ繝ｼ陦ｨ遉ｺ繧ｻ繝ｫ縺ｯ蜈ｱ騾壼ｮ壽焚 ERR_CELL_ADDR 繧剃ｽｿ逕ｨ・・odAppConfig.bas・・
 '===============================================================================
-' 機能名: 月次データの全クリア＋カレンダー更新
-' 概要  : 月次シートの転記データ（値/時間）を全消去し、塗りつぶしも解除します。
-'         その後、「データ登録」シートの対象日（D4優先→D3）と同じ月で、
-'         B列にカレンダー（日付）を再作成します。実行前に確認ダイアログを表示します。
-'===============================================================================
-Public Sub ClearMonthlyDataAndRefreshCalendar()
+' 讖溯・蜷・ 譛域ｬ｡繝・・繧ｿ縺ｮ蜈ｨ繧ｯ繝ｪ繧｢・九き繝ｬ繝ｳ繝繝ｼ譖ｴ譁ｰ
+' 讎りｦ・ : 譛域ｬ｡繧ｷ繝ｼ繝医・霆｢險倥ョ繝ｼ繧ｿ・亥､/譎る俣・峨ｒ蜈ｨ豸亥悉縺励∝｡励ｊ縺､縺ｶ縺励ｂ隗｣髯､縺励∪縺吶・'         縺昴・蠕後√後ョ繝ｼ繧ｿ逋ｻ骭ｲ縲阪す繝ｼ繝医・蟇ｾ雎｡譌･・・4蜆ｪ蜈遺・D3・峨→蜷後§譛医〒縲・'         B蛻励↓繧ｫ繝ｬ繝ｳ繝繝ｼ・域律莉假ｼ峨ｒ蜀堺ｽ懈・縺励∪縺吶ょｮ溯｡悟燕縺ｫ遒ｺ隱阪ム繧､繧｢繝ｭ繧ｰ繧定｡ｨ遉ｺ縺励∪縺吶・'===============================================================================
+Public Sub ClearMonthlyDataAndRefreshCalendar(Optional ByVal AskConfirm As Boolean = True)
     Dim prevScreenUpdating As Boolean
     Dim prevEnableEvents As Boolean
     Dim prevCalc As XlCalculation
@@ -41,7 +29,7 @@ Public Sub ClearMonthlyDataAndRefreshCalendar()
 
     On Error GoTo ErrorHandler
 
-    ' --- アプリ状態の退避と負荷軽減 ---
+    ' --- 繧｢繝励Μ迥ｶ諷九・騾驕ｿ縺ｨ雋闕ｷ霆ｽ貂・---
     prevScreenUpdating = Application.ScreenUpdating
     prevEnableEvents = Application.EnableEvents
     prevCalc = Application.Calculation
@@ -49,61 +37,61 @@ Public Sub ClearMonthlyDataAndRefreshCalendar()
     Application.EnableEvents = False
     Application.Calculation = xlCalculationManual
 
-    ' --- シート取得 ---
+    ' --- 繧ｷ繝ｼ繝亥叙蠕・---
     Set wsMonthly = ThisWorkbook.Sheets(MONTHLY_SHEET_NAME)
     Set wsData = ThisWorkbook.Sheets(DATA_SHEET_NAME)
 
-    ' --- 実行前にエラー表示セルをクリア（存在すれば） ---
+    ' --- 螳溯｡悟燕縺ｫ繧ｨ繝ｩ繝ｼ陦ｨ遉ｺ繧ｻ繝ｫ繧偵け繝ｪ繧｢・亥ｭ伜惠縺吶ｌ縺ｰ・・---
     On Error Resume Next
     wsMonthly.Range(ERR_CELL_ADDR).ClearContents
     wsMonthly.Range(ERR_CELL_ADDR).WrapText = True
     On Error GoTo ErrorHandler
 
-    ' --- 保護の一時解除 ---
+    ' --- 菫晁ｭｷ縺ｮ荳譎りｧ｣髯､ ---
     wasProtected = wsMonthly.ProtectContents
     If wasProtected Then
         On Error Resume Next
         wsMonthly.Unprotect ""
         If Err.Number <> 0 Then
             Err.Clear
-            pwd = InputBox("シートが保護されています。パスワードを入力してください:", _
-                           "シート保護解除")
+            pwd = InputBox("繧ｷ繝ｼ繝医′菫晁ｭｷ縺輔ｌ縺ｦ縺・∪縺吶ゅヱ繧ｹ繝ｯ繝ｼ繝峨ｒ蜈･蜉帙＠縺ｦ縺上□縺輔＞:", _
+                           "繧ｷ繝ｼ繝井ｿ晁ｭｷ隗｣髯､")
             If Len(pwd) = 0 Then GoTo CleanUp
             wsMonthly.Unprotect Password:=pwd
         End If
         On Error GoTo ErrorHandler
     End If
 
-    ' --- 転記データ領域の一括クリア（値/塗りつぶし） ---
-    ' （対象月確定後にクリアを実施）
-
-    ' --- 対象日（D4優先→D3）取得 ---
+    ' --- 霆｢險倥ョ繝ｼ繧ｿ鬆伜沺縺ｮ荳諡ｬ繧ｯ繝ｪ繧｢・亥､/蝪励ｊ縺､縺ｶ縺暦ｼ・---
+    ' ・亥ｯｾ雎｡譛育｢ｺ螳壼ｾ後↓繧ｯ繝ｪ繧｢繧貞ｮ滓命・・
+    ' --- 蟇ｾ雎｡譌･・・4蜆ｪ蜈遺・D3・牙叙蠕・---
     If Not DetermineTargetDateLocal(wsData, targetDate) Then
     ReportErrorToMonthlySheetLocal wsMonthly, _
-        "対象日付が取得できません（D4 または D3 を設定してください）", True
+        "蟇ｾ雎｡譌･莉倥′蜿門ｾ励〒縺阪∪縺帙ｓ・・4 縺ｾ縺溘・ D3 繧定ｨｭ螳壹＠縺ｦ縺上□縺輔＞・・, True
         GoTo CleanUp
     End If
 
-    ' --- 転記データ領域の一括クリア（値/塗りつぶし）---
-    '     対象月の末日行までを対象とし、それ以降（合計・メモ行）は削除しない
-    Dim daysInMonth As Long, lastDayRow As Long
+    ' --- 霆｢險倥ョ繝ｼ繧ｿ鬆伜沺縺ｮ荳諡ｬ繧ｯ繝ｪ繧｢・亥､/蝪励ｊ縺､縺ｶ縺暦ｼ・--
+    '     蟇ｾ雎｡譛医・譛ｫ譌･陦後∪縺ｧ繧貞ｯｾ雎｡縺ｨ縺励√◎繧御ｻ･髯搾ｼ亥粋險医・繝｡繝｢陦鯉ｼ峨・蜑企勁縺励↑縺・    Dim daysInMonth As Long, lastDayRow As Long
     daysInMonth = Day(DateSerial(Year(targetDate), Month(targetDate) + 1, 0))
     lastDayRow = MONTHLY_DATA_START_ROW + daysInMonth - 1
     ClearAllMonthlyTransferArea wsMonthly, lastDayRow
 
-    ' --- カレンダー更新の確認 ---
+    ' --- 繧ｫ繝ｬ繝ｳ繝繝ｼ譖ｴ譁ｰ縺ｮ遒ｺ隱・---
+    If AskConfirm Then
     ret = MsgBox( _
-        "対象月のカレンダー（日付列）を更新します。" & vbCrLf & _
-        "対象月: " & Format$(targetDate, "m/dd(aaa)") & vbCrLf & vbCrLf & _
-        "よろしいですか？", _
-        vbYesNo + vbQuestion, "カレンダー更新の確認")
+        "蟇ｾ雎｡譛医・繧ｫ繝ｬ繝ｳ繝繝ｼ・域律莉伜・・峨ｒ譖ｴ譁ｰ縺励∪縺吶・ & vbCrLf & _
+        "蟇ｾ雎｡譛・ " & Format$(targetDate, "m/dd(aaa)") & vbCrLf & vbCrLf & _
+        "繧医ｍ縺励＞縺ｧ縺吶°・・, _
+        vbYesNo + vbQuestion, "繧ｫ繝ｬ繝ｳ繝繝ｼ譖ｴ譁ｰ縺ｮ遒ｺ隱・)
     If ret <> vbYes Then GoTo CleanUp
+    End If
 
-    ' --- カレンダー更新 ---
+    ' --- 繧ｫ繝ｬ繝ｳ繝繝ｼ譖ｴ譁ｰ ---
     RefreshMonthlyCalendar wsMonthly, targetDate
 
 CleanUp:
-    ' --- 保護の復元 ---
+    ' --- 菫晁ｭｷ縺ｮ蠕ｩ蜈・---
     If wasProtected Then
         On Error Resume Next
         If Len(pwd) > 0 Then
@@ -114,36 +102,34 @@ CleanUp:
         On Error GoTo 0
     End If
 
-    ' --- アプリ状態の復元 ---
+    ' --- 繧｢繝励Μ迥ｶ諷九・蠕ｩ蜈・---
     Application.Calculation = prevCalc
     Application.EnableEvents = prevEnableEvents
     Application.ScreenUpdating = prevScreenUpdating
     Exit Sub
 
 ErrorHandler:
-    ' --- 簡易エラー報告（J3に追記） ---
+    ' --- 邁｡譏薙お繝ｩ繝ｼ蝣ｱ蜻奇ｼ・3縺ｫ霑ｽ險假ｼ・---
     On Error Resume Next
     ReportErrorToMonthlySheetLocal wsMonthly, _
-        "月次クリア/カレンダー更新エラー: " & Err.Description, True
+        "譛域ｬ｡繧ｯ繝ｪ繧｢/繧ｫ繝ｬ繝ｳ繝繝ｼ譖ｴ譁ｰ繧ｨ繝ｩ繝ｼ: " & Err.Description, True
     On Error GoTo 0
     Resume CleanUp
 End Sub
 
 '-------------------------------------------------------------------------------
-' 機能名: 転記データ領域の全クリア（値と塗りつぶし）
-' 引数  : wsMonthly（月次シート）
-'-------------------------------------------------------------------------------
+' 讖溯・蜷・ 霆｢險倥ョ繝ｼ繧ｿ鬆伜沺縺ｮ蜈ｨ繧ｯ繝ｪ繧｢・亥､縺ｨ蝪励ｊ縺､縺ｶ縺暦ｼ・' 蠑墓焚  : wsMonthly・域怦谺｡繧ｷ繝ｼ繝茨ｼ・'-------------------------------------------------------------------------------
 Private Sub ClearAllMonthlyTransferArea(ByRef wsMonthly As Worksheet, ByVal lastDayRow As Long)
     Dim lastRow As Long, lastCol As Long
     Dim rng As Range
 
-    ' クリア対象の最終行は、対象月の末日行まで
+    ' 繧ｯ繝ｪ繧｢蟇ｾ雎｡縺ｮ譛邨り｡後・縲∝ｯｾ雎｡譛医・譛ｫ譌･陦後∪縺ｧ
     lastRow = lastDayRow
 
     lastCol = wsMonthly.Cells(MONTHLY_HEADER_ROW, wsMonthly.Columns.Count).End(xlToLeft).Column
     If lastCol < MONTHLY_MIN_COL Then lastCol = MONTHLY_MIN_COL
 
-    ' 値クリア＋塗りつぶし解除
+    ' 蛟､繧ｯ繝ｪ繧｢・句｡励ｊ縺､縺ｶ縺苓ｧ｣髯､
     On Error Resume Next
     Set rng = wsMonthly.Range(wsMonthly.Cells(MONTHLY_DATA_START_ROW, MONTHLY_MIN_COL), _
                               wsMonthly.Cells(lastRow, lastCol))
@@ -155,10 +141,9 @@ Private Sub ClearAllMonthlyTransferArea(ByRef wsMonthly As Worksheet, ByVal last
 End Sub
 
 '-------------------------------------------------------------------------------
-' 機能名: カレンダー（日付列B）の更新
-' 概要  : 対象月の1日〜末日をB列に連続で設定し、余剰行があればクリア
-' 引数  : wsMonthly（月次シート）、targetDate（対象日）
-'-------------------------------------------------------------------------------
+' 讖溯・蜷・ 繧ｫ繝ｬ繝ｳ繝繝ｼ・域律莉伜・B・峨・譖ｴ譁ｰ
+' 讎りｦ・ : 蟇ｾ雎｡譛医・1譌･縲懈忰譌･繧達蛻励↓騾｣邯壹〒險ｭ螳壹＠縲∽ｽ吝臆陦後′縺ゅｌ縺ｰ繧ｯ繝ｪ繧｢
+' 蠑墓焚  : wsMonthly・域怦谺｡繧ｷ繝ｼ繝茨ｼ峨》argetDate・亥ｯｾ雎｡譌･・・'-------------------------------------------------------------------------------
 Private Sub RefreshMonthlyCalendar(ByRef wsMonthly As Worksheet, ByVal targetDate As Date)
     Dim firstDate As Date
     Dim daysInMonth As Long
@@ -169,8 +154,7 @@ Private Sub RefreshMonthlyCalendar(ByRef wsMonthly As Worksheet, ByVal targetDat
     firstDate = DateSerial(Year(targetDate), Month(targetDate), 1)
     daysInMonth = Day(DateSerial(Year(targetDate), Month(targetDate) + 1, 0))
 
-    ' 必要行数分、日付を設定
-    For r = 0 To daysInMonth - 1
+    ' 蠢・ｦ∬｡梧焚蛻・∵律莉倥ｒ險ｭ螳・    For r = 0 To daysInMonth - 1
         With wsMonthly.Cells(rowStart + r, COL_DATE)
             .Value = firstDate + r
             .NumberFormatLocal = "mm/dd(aaa)"
@@ -178,13 +162,10 @@ Private Sub RefreshMonthlyCalendar(ByRef wsMonthly As Worksheet, ByVal targetDat
         End With
     Next r
 
-    ' 末日以降（合計・メモ行など）は保持するため、ここでは何もしない
-End Sub
+    ' 譛ｫ譌･莉･髯搾ｼ亥粋險医・繝｡繝｢陦後↑縺ｩ・峨・菫晄戟縺吶ｋ縺溘ａ縲√％縺薙〒縺ｯ菴輔ｂ縺励↑縺・End Sub
 
 '-------------------------------------------------------------------------------
-' 機能名: 対象日（D4優先→D3）の取得
-' 引数  : wsData（データ登録シート）
-' 戻り値: 取得できた場合 True
+' 讖溯・蜷・ 蟇ｾ雎｡譌･・・4蜆ｪ蜈遺・D3・峨・蜿門ｾ・' 蠑墓焚  : wsData・医ョ繝ｼ繧ｿ逋ｻ骭ｲ繧ｷ繝ｼ繝茨ｼ・' 謌ｻ繧雁､: 蜿門ｾ励〒縺阪◆蝣ｴ蜷・True
 '-------------------------------------------------------------------------------
 Private Function DetermineTargetDateLocal(ByRef wsData As Worksheet, ByRef targetDate As Date) As Boolean
     DetermineTargetDateLocal = False
@@ -198,9 +179,7 @@ Private Function DetermineTargetDateLocal(ByRef wsData As Worksheet, ByRef targe
 End Function
 
 '-------------------------------------------------------------------------------
-' 機能名: エラーメッセージの表示（J3）。append=True で追記
-' 引数  : wsMonthly（月次シート）、message（表示内容）、append（追記フラグ）
-'-------------------------------------------------------------------------------
+' 讖溯・蜷・ 繧ｨ繝ｩ繝ｼ繝｡繝・そ繝ｼ繧ｸ縺ｮ陦ｨ遉ｺ・・3・峨Ｂppend=True 縺ｧ霑ｽ險・' 蠑墓焚  : wsMonthly・域怦谺｡繧ｷ繝ｼ繝茨ｼ峨［essage・郁｡ｨ遉ｺ蜀・ｮｹ・峨∥ppend・郁ｿｽ險倥ヵ繝ｩ繧ｰ・・'-------------------------------------------------------------------------------
 Private Sub ReportErrorToMonthlySheetLocal(ByRef wsMonthly As Worksheet, ByVal message As String, Optional ByVal append As Boolean = False)
     On Error Resume Next
     If wsMonthly Is Nothing Then Exit Sub

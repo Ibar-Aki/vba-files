@@ -1,4 +1,5 @@
-・Pandoc：mdやpdfやwordを行き来する。
-・qpdf　：安全かつ簡単なPDF操作
-・VScode
-・Crome拡張機能
+・Pandoc		   ：MDやpdfやwordを行き来する。生成AIはMDファイル出力となるが、それを社内文書化するときに必要
+・qpdf　		   ：安全かつ簡単なPDF操作。Powershellによる、PDF分割の自動化に使用。
+・VScode		　 ：ＭＤファイル編集、差分比較などに使用
+・Noto Sans JP(Google Font)：文字化けを防ぐため
+・Crome拡張機能            ：
