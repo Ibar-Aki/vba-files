@@ -102,7 +102,8 @@ Public Sub GetOutlookSchedule()
     
     ' --- データ存在チェック：ヘッダー行より下に出力があればクリア実行 ---
     If lastOutputRow >= outputRow Then
-        ws.Range(ws.Cells(outputRow, COL_TIME), ws.Cells(lastOutputRow, COL_KUBUN)).ClearContents
+        ws.Range(ws.Cells(outputRow, COL_TIME), ws.Cells(lastOutputRow, COL_CLASS)).ClearContents
+        ws.Range(ws.Cells(outputRow, COL_KUBUN), ws.Cells(lastOutputRow, COL_KUBUN)).ClearContents
     End If
 
     ' --- ステップ6：ヘッダー行の再設定 ---

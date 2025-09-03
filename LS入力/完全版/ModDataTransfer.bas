@@ -73,7 +73,7 @@ Private Const MAX_MINUTES_PER_HOUR As Long = 60       ' 1時間あたりの最�
 ' --- 動作設定・書式定数 ---
 Private Const KEY_SEPARATOR As String = "|"              ' 内部処理で「作業コード」と「作番」を連結する際の区切り文字
 Private Const TIME_FORMAT As String = "[hh]:mm"          ' Excelセルに設定する時間書式（24時間以上表示対応）
-Private Const DATE_FORMAT As String = "yyyy/mm/dd(aaa)"  ' メッセージ表示用の日付書式
+Private Const DATE_FORMAT As String = "mm/dd(aaa)"  ' メッセージ表示用の日付書式
 Private Const PREVIEW_TAB As String = vbTab              ' 確認ダイアログのプレビュー表示で使用するタブ文字
 Private Const DUP_HIGHLIGHT_COLOR As Long = vbYellow       ' 重複データを検知した際にセルを塗りつぶす色
 
@@ -1149,14 +1149,22 @@ Private Function FindMatchingDateRow(ByRef wsMonthly As Worksheet, ByVal targetD
     Set foundCell = wsMonthly.Columns(MonthlyCol_Date).Find( _
         What:=Int(targetDate), _
         LookIn:=xlValues, _
-        LookAt:=xlWhole)
+        LookAt:=xlWhole, _
+        SearchOrder:=xlByRows, _
+        SearchDirection:=xlNext, _
+        MatchCase:=False, _
+        SearchFormat:=False)
 
-    ' --- Fallback: support date columns stored as formatted text (e.g., "yyyy/mm/dd(aaa)") ---
+    ' --- Fallback: support date columns stored as formatted text or with extra characters ---
     If foundCell Is Nothing Then
         Set foundCell = wsMonthly.Columns(MonthlyCol_Date).Find( _
-            What:=Format$(targetDate, DATE_FORMAT), _
+            What:=Format$(targetDate, "yyyy/mm/dd") & "*", _
             LookIn:=xlValues, _
-            LookAt:=xlWhole)
+            LookAt:=xlWhole, _
+            SearchOrder:=xlByRows, _
+            SearchDirection:=xlNext, _
+            MatchCase:=False, _
+            SearchFormat:=False)
     End If
 
     If foundCell Is Nothing Then

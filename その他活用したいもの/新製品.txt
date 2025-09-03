@@ -1,5 +1,20 @@
+■PCインストール
 ・Pandoc		   ：MDやpdfやwordを行き来する。生成AIはMDファイル出力となるが、それを社内文書化するときに必要
 ・qpdf　		   ：安全かつ簡単なPDF操作。Powershellによる、PDF分割の自動化に使用。
-・VScode		　 ：ＭＤファイル編集、差分比較などに使用
-・Noto Sans JP(Google Font)：文字化けを防ぐため
-・Crome拡張機能            ：
+・VScode		　 ：ＭＤファイル編集、差分比較などに使用。
+■その他
+・iPhone版GEMINI　　　　　 ：移動中などに使用したい。Workspace利用可能。(iPhoneアプリ)
+・Noto Sans JP(Google Font)：Gemini使用時の文字化けを防ぐため。（ただのダウンロードファイル)
+
+■VScode拡張機能
+※※基本
+　念のため、IT部門に確認する。
+　・公開元が認証済み（Verified Publisher）に可能な限り絞る。
+　・どうしてもの場合は要相談
+　・生成AI関係は申請しない。(多分、特別の申請がさらに必要）
+
+#申請したい
+　・japanese language pack
+　・PowerShell
+　・Learn Authoring Pack
+　・Code Spell Checker

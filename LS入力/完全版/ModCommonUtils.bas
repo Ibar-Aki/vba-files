@@ -136,7 +136,7 @@ Public Function GetErrorDetails(ByVal errNo As Long, ByVal errDesc As String) As
     Dim displayNo As Long
     Dim msg As String
 
-    If errNo <= vbObjectError Then
+    If errNo >= vbObjectError And errNo < 0 Then
         displayNo = errNo - vbObjectError
     Else
         displayNo = errNo
