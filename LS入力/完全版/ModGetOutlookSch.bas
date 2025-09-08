@@ -63,6 +63,8 @@ Public Sub GetOutlookSchedule()
     Dim rngKeyKbn As Range, rngClassKbn As Range    ' 区分用の名前付き範囲オブジェクト
     Dim arrKey As Variant, arrClass As Variant      ' 分類用のキーワード・分類名リスト（配列）
     Dim arrKeyKbn As Variant, arrClassKbn As Variant ' 区分用のキーワード・区分名リスト（配列）
+    Dim rngExclude As Range                        ' 除外キーワードの名前付き範囲
+    Dim arrExclude As Variant                      ' 除外キーワード配列
     Dim enableClass As Boolean, enableKbn As Boolean ' 分類・区分判定機能の有効フラグ
 
     ' --- ステップ1：実行前設定 ---
@@ -149,6 +151,13 @@ Public Sub GetOutlookSchedule()
         arrKeyKbn = To2DArray(rngKeyKbn)
         arrClassKbn = To2DArray(rngClassKbn)
     End If
+
+    ' --- ステップ9：除外キーワードの名前付き範囲を取得 ---
+    If TryGetNamedRange("ExcludeKeywords", rngExclude, warnMsg) Then
+        arrExclude = To2DArray(rngExclude)
+    Else
+        arrExclude = Empty
+    End If
     
     '============================================================
     ' ■ 5. Outlook 接続
@@ -202,37 +211,40 @@ Public Sub GetOutlookSchedule()
         MsgBox Format(targetDate, "yyyy年mm月dd日") & " の予定はありませんでした。", vbInformation, "処理完了"
     Else
         ' --- 予定がある場合のループ処理 ---
-        actualCount = 0
-        Dim subj As String, className As String, kubunName As String
-        For Each olApt In olRestrictedItems
-            actualCount = actualCount + 1
+          actualCount = 0
+          Dim subj As String, className As String, kubunName As String
+          For Each olApt In olRestrictedItems
+              actualCount = actualCount + 1
 
-            ' --- 予定情報の書き込み ---
-            ws.Cells(outputRow, COL_TIME).Value = Format(olApt.Start, "hhmm") & "-" & Format(olApt.End, "hhmm") ' 時間
-            subj = NzString(olApt.Subject)
-            ws.Cells(outputRow, COL_SUBJECT).Value = subj ' 件名
+              subj = NzString(olApt.Subject)
+              If ShouldExclude(subj, arrExclude) Then GoTo NextItem
 
-            ' --- 会議時間を "HHMM" 形式で計算・書式設定 ---
-            Dim totalMinutes As Long, hours As Long, minutes As Long
-            totalMinutes = DateDiff("n", olApt.Start, olApt.End)
-            hours = totalMinutes \ 60
-            minutes = totalMinutes Mod 60
-            With ws.Cells(outputRow, COL_DURATION)
-                .NumberFormat = "@" ' 文字列として設定
-                .Value = Format(hours, "00") & Format(minutes, "00")
-            End With
+              ' --- 予定情報の書き込み ---
+              ws.Cells(outputRow, COL_TIME).Value = Format(olApt.Start, "hhmm") & "-" & Format(olApt.End, "hhmm") ' 時間
+              ws.Cells(outputRow, COL_SUBJECT).Value = subj ' 件名
 
-            ' --- 分類（F列）と区分（H列）の判定と書き込み ---
-            className = ""
-            If enableClass Then className = ResolveClassByKeyMatrix(subj, arrKey, arrClass) ' 分類を解決
-            ws.Cells(outputRow, COL_CLASS).Value = className
+              ' --- 会議時間を "HHMM" 形式で計算・書式設定 ---
+              Dim totalMinutes As Long, hours As Long, minutes As Long
+              totalMinutes = DateDiff("n", olApt.Start, olApt.End)
+              hours = totalMinutes \ 60
+              minutes = totalMinutes Mod 60
+              With ws.Cells(outputRow, COL_DURATION)
+                  .NumberFormat = "@" ' 文字列として設定
+                  .Value = Format(hours, "00") & Format(minutes, "00")
+              End With
 
-            kubunName = ""
-            If enableKbn Then kubunName = ResolveClassByKeyMatrix(subj, arrKeyKbn, arrClassKbn) ' 区分を解決
-            ws.Cells(outputRow, COL_KUBUN).Value = kubunName
+              ' --- 分類（F列）と区分（H列）の判定と書き込み ---
+              className = ""
+              If enableClass Then className = ResolveClassByKeyMatrix(subj, arrKey, arrClass) ' 分類を解決
+              ws.Cells(outputRow, COL_CLASS).Value = className
 
-            outputRow = outputRow + 1
-        Next olApt
+              kubunName = ""
+              If enableKbn Then kubunName = ResolveClassByKeyMatrix(subj, arrKeyKbn, arrClassKbn) ' 区分を解決
+              ws.Cells(outputRow, COL_KUBUN).Value = kubunName
+
+              outputRow = outputRow + 1
+NextItem:
+          Next olApt
 
         ' --- 完了メッセージの表示 ---
         Dim doneMsg As String
@@ -404,6 +416,31 @@ Private Function NzString(ByVal v As Variant) As String
     Else
         NzString = CStr(v)
     End If
+End Function
+
+'==============================================================================='
+' 【機能名】除外キーワード判定
+' 【概要】  件名(subject)が除外キーワード配列(excludeArr)のいずれかに
+'           部分一致するかを判定する。
+' 【引数】  subject (String)  : 判定対象の件名
+'           excludeArr (Variant): 除外キーワードの2次元配列 (行,1)
+' 【戻り値】Boolean: 部分一致した場合はTrue、しない場合はFalse
+'==============================================================================='
+Private Function ShouldExclude(ByVal subject As String, ByRef excludeArr As Variant) As Boolean
+    Dim r As Long
+    Dim kw As String
+
+    If IsEmpty(excludeArr) Then Exit Function
+
+    For r = LBound(excludeArr, 1) To UBound(excludeArr, 1)
+        kw = NzString(excludeArr(r, 1))
+        If Len(kw) > 0 Then
+            If InStr(1, subject, kw, vbTextCompare) > 0 Then
+                ShouldExclude = True
+                Exit Function
+            End If
+        End If
+    Next r
 End Function
 
 '===============================================================================
