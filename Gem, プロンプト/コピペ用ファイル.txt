@@ -1,0 +1,222 @@
+'============================================================
+' 2モジュール版（軽量）：ThisWorkbook + 標準モジュール(modOne)のみ
+' ・各シートC3のX(1〜5)を使用し、C列ダブルクリックで「同じ行の(C+X)列の値」をコピー
+' ・イベントはThisWorkbookに集約／ReadMeは除外／下限行はMIN_DATA_ROW
+' ・クリップボードはWinAPI（UTF-16）で高速・32/64bit両対応
+' ・Alt+F8に出したいユーティリティ（BuildBaseWorkbookなど）はmodOne側に集約
+'============================================================
+
+'=========================
+' 【ThisWorkbook】に貼り付け
+'=========================
+Option Explicit
+
+Private Sub Workbook_SheetBeforeDoubleClick(ByVal Sh As Object, ByVal Target As Range, Cancel As Boolean)
+    On Error GoTo SAFE_EXIT
+
+    If Sh.Name = EXCLUDE_SHEET Then Exit Sub             ' 除外
+    If Intersect(Target, Sh.Columns(3)) Is Nothing Then Exit Sub ' C列以外は無視
+
+    Cancel = True                                        ' 既定動作を抑止
+    If Target.Row = 3 Then Exit Sub                      ' C3は設定セル
+    If Target.Row < MIN_DATA_ROW Then Exit Sub           ' 下限行より上は無視
+
+    Dim x As Long
+    x = 0
+    If IsNumeric(Sh.Range("C3").Value) Then x = CLng(Sh.Range("C3").Value)
+    If x < 1 Or x > 5 Then
+        ShowStatus "C3に1〜5を入力してください", 1
+        Exit Sub
+    End If
+
+    Dim src As Range, s As String, v As Variant
+    Set src = Sh.Cells(Target.Row, 3 + x)                ' (C+X)
+    v = src.Value2
+    If IsError(v) Then ShowStatus "コピー対象がエラーです", 1: Exit Sub
+    s = CStr(v)
+    If LenB(s) = 0 Then ShowStatus "コピー対象が空です", 1: Exit Sub
+
+    If SetClipboardTextUTF16(s) Then
+        ShowStatus "コピーしました: " & s, 1
+    Else
+        ShowStatus "クリップボードに書き込めませんでした", 1
+    End If
+    Exit Sub
+
+SAFE_EXIT:
+    Cancel = True
+    ShowStatus "処理中にエラーが発生しました", 1
+End Sub
+
+Private Sub Workbook_Open()
+    On Error Resume Next
+    ApplyC3ValidationAcrossSheets
+End Sub
+
+
+'=========================
+' 【標準モジュール】modOne に貼り付け
+'=========================
+Option Explicit
+
+'--- 設定 ---
+Public Const MIN_DATA_ROW As Long = 5
+Public Const EXCLUDE_SHEET As String = "ReadMe"
+
+'--- WinAPI宣言（32/64bit両対応）---
+#If VBA7 Then
+    Private Declare PtrSafe Function OpenClipboard Lib "user32" (ByVal hwnd As LongPtr) As Long
+    Private Declare PtrSafe Function CloseClipboard Lib "user32" () As Long
+    Private Declare PtrSafe Function EmptyClipboard Lib "user32" () As Long
+    Private Declare PtrSafe Function SetClipboardData Lib "user32" (ByVal wFormat As Long, ByVal hMem As LongPtr) As LongPtr
+    Private Declare PtrSafe Function GlobalAlloc Lib "kernel32" (ByVal uFlags As Long, ByVal dwBytes As LongPtr) As LongPtr
+    Private Declare PtrSafe Function GlobalLock Lib "kernel32" (ByVal hMem As LongPtr) As LongPtr
+    Private Declare PtrSafe Function GlobalUnlock Lib "kernel32" (ByVal hMem As LongPtr) As Long
+    Private Declare PtrSafe Function GlobalFree Lib "kernel32" (ByVal hMem As LongPtr) As LongPtr
+    Private Declare PtrSafe Sub RtlMoveMemory Lib "kernel32" (ByVal Destination As LongPtr, ByVal Source As LongPtr, ByVal Length As LongPtr)
+    Private Declare PtrSafe Sub Sleep Lib "kernel32" (ByVal dwMilliseconds As LongPtr)
+#Else
+    Private Declare Function OpenClipboard Lib "user32" (ByVal hwnd As Long) As Long
+    Private Declare Function CloseClipboard Lib "user32" () As Long
+    Private Declare Function EmptyClipboard Lib "user32" () As Long
+    Private Declare Function SetClipboardData Lib "user32" (ByVal wFormat As Long, ByVal hMem As Long) As Long
+    Private Declare Function GlobalAlloc Lib "kernel32" (ByVal uFlags As Long, ByVal dwBytes As Long) As Long
+    Private Declare Function GlobalLock Lib "kernel32" (ByVal hMem As Long) As Long
+    Private Declare Function GlobalUnlock Lib "kernel32" (ByVal hMem As Long) As Long
+    Private Declare Function GlobalFree Lib "kernel32" (ByVal hMem As Long) As Long
+    Private Declare Sub RtlMoveMemory Lib "kernel32" (ByVal Destination As Long, ByVal Source As Long, ByVal Length As Long)
+    Private Declare Sub Sleep Lib "kernel32" (ByVal dwMilliseconds As Long)
+#End If
+
+Private Const GMEM_MOVEABLE As Long = &H2
+Private Const GMEM_ZEROINIT As Long = &H40
+Private Const GHND As Long = GMEM_MOVEABLE Or GMEM_ZEROINIT
+Private Const CF_UNICODETEXT As Long = 13
+
+'--- 軽量ユーティリティ ---
+Public Sub ShowStatus(ByVal msg As String, Optional ByVal seconds As Double = 1#)
+    On Error Resume Next
+    Application.StatusBar = msg
+    DoEvents
+    SleepMilliseconds CLng(seconds * 1000)
+    Application.StatusBar = False
+End Sub
+
+Public Sub SleepMilliseconds(ByVal ms As Long)
+    If ms <= 0 Then Exit Sub
+    #If VBA7 Then
+        Dim lp As LongPtr: lp = ms
+        Sleep lp
+    #Else
+        Sleep ms
+    #End If
+End Sub
+
+Public Sub ApplyC3ValidationAcrossSheets()
+    Dim ws As Worksheet
+    For Each ws In ThisWorkbook.Worksheets
+        If ws.Name <> EXCLUDE_SHEET Then
+            With ws.Range("C3").Validation
+                .Delete
+            End With
+            With ws.Range("C3").Validation
+                .Add Type:=xlValidateWholeNumber, _
+                     AlertStyle:=xlValidAlertStop, _
+                     Operator:=xlBetween, Formula1:=1, Formula2:=5
+                .IgnoreBlank = False
+                .InputTitle = "X = 1〜5"
+                .InputMessage = "ダブルクリックコピーのオフセット値（整数1〜5）"
+                .InCellDropdown = True
+            End With
+        End If
+    Next ws
+End Sub
+
+'--- クリップボード(UTF-16) ---
+Public Function SetClipboardTextUTF16(ByVal s As String) As Boolean
+    On Error GoTo FAIL
+
+    Dim cb As LongPtr, hGlobal As LongPtr, pGlobal As LongPtr
+    Dim ok As Long, ret As LongPtr
+
+    cb = (Len(s) + 1) * 2
+    hGlobal = GlobalAlloc(GHND, cb)
+    If hGlobal = 0 Then GoTo FAIL
+
+    pGlobal = GlobalLock(hGlobal)
+    If pGlobal = 0 Then GoTo FAIL
+    RtlMoveMemory pGlobal, StrPtr(s), Len(s) * 2
+    Call GlobalUnlock(hGlobal)
+
+    ok = OpenClipboard(0)
+    If ok = 0 Then Sleep 10: ok = OpenClipboard(0)
+    If ok = 0 Then GoTo FAIL
+
+    Call EmptyClipboard
+    ret = SetClipboardData(CF_UNICODETEXT, hGlobal)
+    Call CloseClipboard
+
+    If ret <> 0 Then SetClipboardTextUTF16 = True: Exit Function
+
+FAIL:
+    On Error Resume Next
+    If hGlobal <> 0 Then GlobalFree hGlobal
+    SetClipboardTextUTF16 = False
+End Function
+
+'--- ベース作成（Alt+F8に表示されます）---
+Public Sub BuildBaseWorkbook()
+    Dim ws As Worksheet
+
+    ' ReadMe シート
+    Set ws = Nothing
+    On Error Resume Next
+    Set ws = ThisWorkbook.Worksheets(EXCLUDE_SHEET)
+    On Error GoTo 0
+    If ws Is Nothing Then
+        Set ws = ThisWorkbook.Worksheets.Add(Before:=ThisWorkbook.Worksheets(1))
+        ws.Name = EXCLUDE_SHEET
+        ws.Range("A1").Value = "このシートはダブルクリックコピーの対象外です。"
+        ws.Range("A3").Value = "各データシートの C3 に 1〜5 を入力してください（既定は 2）。"
+        ws.Range("A4").Value = "C列をダブルクリック → 同じ行の (C+X) 列の値がクリップボードに入ります。"
+        ws.Columns("A:B").AutoFit
+    End If
+
+    ' データシート
+    PrepareDataSheet "SampleA"
+    PrepareDataSheet "SampleB"
+
+    ApplyC3ValidationAcrossSheets
+    ShowStatus "ベース作成完了：C列の行" & MIN_DATA_ROW & "以降でダブルクリックをテスト", 2
+End Sub
+
+Private Sub PrepareDataSheet(ByVal sheetName As String)
+    Dim ws As Worksheet, r As Long
+
+    Set ws = Nothing
+    On Error Resume Next
+    Set ws = ThisWorkbook.Worksheets(sheetName)
+    On Error GoTo 0
+
+    If ws Is Nothing Then
+        Set ws = ThisWorkbook.Worksheets.Add(After:=ThisWorkbook.Worksheets(ThisWorkbook.Worksheets.Count))
+        ws.Name = sheetName
+    Else
+        ws.Cells.Clear
+    End If
+
+    ws.Range("C3").Value = 2 ' 既定X
+
+    ws.Range("B4").Resize(1, 8).Value = Array("No", "C=基準", "D", "E", "F", "G", "H", "メモ")
+    For r = 5 To 12
+        ws.Cells(r, "B").Value = r - 4
+        ws.Cells(r, "C").Value = "C" & r
+        ws.Cells(r, "D").Value = "D" & r
+        ws.Cells(r, "E").Value = "E" & r
+        ws.Cells(r, "F").Value = "F" & r
+        ws.Cells(r, "G\”).Value = "G" & r
+        ws.Cells(r, "H").Value = "H" & r
+        ws.Cells(r, "I").Value = "メモ" & r
+    Next r
+    ws.Columns("B:I").AutoFit
+End Sub
