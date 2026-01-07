@@ -1,0 +1,13 @@
+# System
+Output/
+Logs/
+Config/MergeConfig.xlsx
+
+# Office Temporary Files
+~$*
+*.tmp
+*.bak
+
+# Windows
+Thumbs.db
+Desktop.ini
