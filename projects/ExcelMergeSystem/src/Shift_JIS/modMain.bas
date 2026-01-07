@@ -1,19 +1,19 @@
 '==================================================
-' modMain - ƒƒCƒ“ˆ—ƒ‚ƒWƒ…[ƒ‹
+' modMain - CW[
 ' Version: 2.0
 ' Date: 2026/01/07
 '==================================================
 Option Explicit
 
 '--------------------------------------------------
-' ƒ‚ƒWƒ…[ƒ‹ƒŒƒxƒ‹•Ï”iƒOƒ[ƒoƒ‹•Ï”‚©‚ç‚Ì•ÏXj
+' W[xÏiO[oÏÌ•ÏXj
 '--------------------------------------------------
 Private m_ConfigData As Object
 Private m_LogCollection As Collection
 Private m_IsProcessing As Boolean
 
 '--------------------------------------------------
-' İ’èƒf[ƒ^‚Ö‚ÌƒAƒNƒZƒTiƒJƒvƒZƒ‹‰»j
+' İ’f[^Ö‚ÌƒANZTiJvZj
 '--------------------------------------------------
 Public Property Get ConfigData() As Object
     Set ConfigData = m_ConfigData
@@ -32,7 +32,7 @@ Public Property Set LogCollection(ByVal value As Collection)
 End Property
 
 '--------------------------------------------------
-' ƒƒCƒ“ƒGƒ“ƒgƒŠ[ƒ|ƒCƒ“ƒgiŠO•”‚©‚çŒÄ‚Ño‚³‚ê‚éj
+' CGg[|CgiOÄ‚Ñoj
 '--------------------------------------------------
 Public Sub ExecuteMerge(ByVal strFile1 As String, ByVal strFile2 As String)
     
@@ -40,9 +40,9 @@ Public Sub ExecuteMerge(ByVal strFile1 As String, ByVal strFile2 As String)
     Dim result As Boolean
     Dim appState As Object
     
-    ' “ñdÀs–h~
+    ' dsh~
     If m_IsProcessing Then
-        MsgBox "ˆ—‚ªŠù‚ÉÀs’†‚Å‚·B", vbExclamation, APP_TITLE
+        MsgBox "ÉsÅ‚B", vbExclamation, APP_TITLE
         Exit Sub
     End If
     
@@ -51,11 +51,11 @@ Public Sub ExecuteMerge(ByVal strFile1 As String, ByVal strFile2 As String)
     m_IsProcessing = True
     result = False
     
-    ' ‰Šú‰»
+    ' 
     startTime = Now
     Set appState = SaveApplicationState()
     
-    ' ƒAƒvƒŠƒP[ƒVƒ‡ƒ“İ’èiƒpƒtƒH[ƒ}ƒ“ƒXŒüãj
+    ' AvP[Vİ’iptH[}Xj
     With Application
         .ScreenUpdating = False
         .DisplayAlerts = False
@@ -63,72 +63,78 @@ Public Sub ExecuteMerge(ByVal strFile1 As String, ByVal strFile2 As String)
         .EnableEvents = False
     End With
     
-    ' ƒƒO‰Šú‰»
+    ' O
     Call InitializeLog
     Call LogMessage("=" & String(40, "="), LOG_LEVEL_INFO)
-    Call LogMessage(APP_TITLE & " v" & APP_VERSION & " ˆ—ŠJn", LOG_LEVEL_INFO)
+    Call LogMessage(APP_TITLE & " v" & APP_VERSION & " Jn", LOG_LEVEL_INFO)
     Call LogMessage("=" & String(40, "="), LOG_LEVEL_INFO)
     Call LogMessage("Excel1: " & GetFileName(strFile1), LOG_LEVEL_INFO)
     Call LogMessage("Excel2: " & GetFileName(strFile2), LOG_LEVEL_INFO)
     
-    ' İ’è“Ç
+    ' İ’Ç
     If Not LoadConfiguration() Then
-        Call LogMessage("İ’èƒtƒ@ƒCƒ‹‚Ì“Ç‚İ‚İ‚É¸”s‚µ‚Ü‚µ‚½", LOG_LEVEL_ERROR)
+        Call LogMessage("İ’t@CÌ“Ç‚İİ‚ÉsÜ‚", LOG_LEVEL_ERROR)
         GoTo Cleanup
     End If
     
-    ' ƒtƒ@ƒCƒ‹ŒŸØ
+    ' İ’l
+    If Not ValidateConfigValues() Then
+        Call LogMessage("İ’lÌŒØ‚ÉsÜ‚", LOG_LEVEL_ERROR)
+        GoTo Cleanup
+    End If
+    
+    ' t@C
     If Not ValidateFiles(strFile1, strFile2) Then
-        Call LogMessage("ƒtƒ@ƒCƒ‹ŒŸØƒGƒ‰[", LOG_LEVEL_ERROR)
+        Call LogMessage("t@CØƒG[", LOG_LEVEL_ERROR)
         GoTo Cleanup
     End If
     
-    ' ƒf[ƒ^ˆ—Às
+    ' f[^s
     result = ProcessMerge(strFile1, strFile2)
     
     If result Then
-        Call LogMessage("ˆ—Š®—¹ ˆ—ŠÔ: " & _
+        Call LogMessage(" : " & _
             Format(Now - startTime, TIMESTAMP_FORMAT_TIME), LOG_LEVEL_INFO)
         Call LogMessage("=" & String(40, "="), LOG_LEVEL_INFO)
     Else
-        Call LogMessage("ˆ—¸”s", LOG_LEVEL_ERROR)
+        Call LogMessage("s", LOG_LEVEL_ERROR)
     End If
     
 Cleanup:
-    ' ƒAƒvƒŠƒP[ƒVƒ‡ƒ“ó‘Ô•œŒ³
+    ' AvP[VÔ•
     Call RestoreApplicationState(appState)
     
-    ' ƒƒ‚ƒŠ‰ğ•ú
+    ' 
     Call CleanupResources
     
-    ' ˆ—Š®—¹ƒƒbƒZ[ƒW
+    ' bZ[W
     If result Then
-        MsgBox "ˆ—‚ªŠ®—¹‚µ‚Ü‚µ‚½B" & vbCrLf & _
-               "o—ÍƒtƒHƒ‹ƒ_‚ğŠm”F‚µ‚Ä‚­‚¾‚³‚¢B", _
+        MsgBox "Ü‚B" & vbCrLf & _
+               "oÍƒtH_mFÄ‚B", _
                vbInformation, APP_TITLE
     Else
-        MsgBox "ˆ—’†‚ÉƒGƒ‰[‚ª”­¶‚µ‚Ü‚µ‚½B" & vbCrLf & _
-               "ƒƒO‚ğŠm”F‚µ‚Ä‚­‚¾‚³‚¢B", _
+        MsgBox "ÉƒG[Ü‚B" & vbCrLf & _
+               "OmFÄ‚B", _
                vbExclamation, APP_TITLE
     End If
     
     m_IsProcessing = False
     
-    ' ˆÀ‘S‚È©ŒÈI—¹i‘¼‚ÌƒuƒbƒN‚É‰e‹¿‚ğ—^‚¦‚È‚¢j
+    ' SÈÈIiÌƒubNÉ‰e^È‚j
     Call SafeCloseThisWorkbook
     
     Exit Sub
     
 ErrorHandler:
-    Call LogMessage("ƒVƒXƒeƒ€ƒGƒ‰[: " & Err.Description & _
-                   " (ƒGƒ‰[”Ô†: " & Err.Number & ")", LOG_LEVEL_ERROR)
+    Call LogMessage("VXeG[: " & Err.Description & _
+                   " (G[Ô: " & Err.Number & ")", LOG_LEVEL_ERROR)
     result = False
     Resume Cleanup
     
 End Sub
 
 '--------------------------------------------------
-' Œ‹‡ˆ—ƒƒCƒ“
+' C
 '--------------------------------------------------
 Private Function ProcessMerge(ByVal file1 As String, ByVal file2 As String) As Boolean
     
@@ -144,46 +150,46 @@ Private Function ProcessMerge(ByVal file1 As String, ByVal file2 As String) As B
     Set data2 = Nothing
     Set mergedData = Nothing
     
-    ' Excel1“Ç
-    Call LogMessage("Excel1“ÇŠJn...", LOG_LEVEL_INFO)
+    ' Excel1Ç
+    Call LogMessage("Excel1ÇJn...", LOG_LEVEL_INFO)
     Set data1 = LoadExcelData(file1, "Excel1")
     If data1 Is Nothing Then
-        Call LogMessage("Excel1‚Ìƒf[ƒ^“Ç‚É¸”s‚µ‚Ü‚µ‚½", LOG_LEVEL_ERROR)
+        Call LogMessage("Excel1Ìƒf[^ÇÉsÜ‚", LOG_LEVEL_ERROR)
         GoTo CleanupLocal
     End If
     
-    ' Excel2“Ç
-    Call LogMessage("Excel2“ÇŠJn...", LOG_LEVEL_INFO)
+    ' Excel2Ç
+    Call LogMessage("Excel2ÇJn...", LOG_LEVEL_INFO)
     Set data2 = LoadExcelData(file2, "Excel2")
     If data2 Is Nothing Then
-        Call LogMessage("Excel2‚Ìƒf[ƒ^“Ç‚É¸”s‚µ‚Ü‚µ‚½", LOG_LEVEL_ERROR)
+        Call LogMessage("Excel2Ìƒf[^ÇÉsÜ‚", LOG_LEVEL_ERROR)
         GoTo CleanupLocal
     End If
     
-    ' ƒf[ƒ^Œ‹‡
-    Call LogMessage("ƒf[ƒ^Œ‹‡ˆ—ŠJn...", LOG_LEVEL_INFO)
+    ' f[^
+    Call LogMessage("f[^Jn...", LOG_LEVEL_INFO)
     Set mergedData = MergeData(data1, data2)
     If mergedData Is Nothing Then
-        Call LogMessage("ƒf[ƒ^Œ‹‡‚É¸”s‚µ‚Ü‚µ‚½", LOG_LEVEL_ERROR)
+        Call LogMessage("f[^ÉsÜ‚", LOG_LEVEL_ERROR)
         GoTo CleanupLocal
     End If
     
-    ' Œ‹‰Ê‚ğ’Ç‰Áî•ñ‚Æ‚µ‚Ä•Û‘¶
+    ' Ê‚Ç‰Æ‚Ä•Û‘
     mergedData("File1Name") = GetFileName(file1)
     mergedData("File2Name") = GetFileName(file2)
     
-    ' o—Í
-    Call LogMessage("ƒtƒ@ƒCƒ‹o—ÍŠJn...", LOG_LEVEL_INFO)
+    ' o
+    Call LogMessage("t@CoÍŠJn...", LOG_LEVEL_INFO)
     outputPath = GenerateOutput(mergedData)
     
     ProcessMerge = (outputPath <> "")
     
     If ProcessMerge Then
-        Call LogMessage("o—Íƒtƒ@ƒCƒ‹: " & outputPath, LOG_LEVEL_INFO)
+        Call LogMessage("oÍƒt@C: " & outputPath, LOG_LEVEL_INFO)
     End If
     
 CleanupLocal:
-    ' ƒ[ƒJƒ‹ƒIƒuƒWƒFƒNƒg‚Ìƒƒ‚ƒŠ‰ğ•ú
+    ' [JIuWFNgÌƒ
     Set data1 = Nothing
     Set data2 = Nothing
     Set mergedData = Nothing
@@ -198,7 +204,7 @@ ErrorHandler:
 End Function
 
 '--------------------------------------------------
-' ƒAƒvƒŠƒP[ƒVƒ‡ƒ“ó‘Ô‚Ì•Û‘¶
+' AvP[VÔ‚Ì•Û‘
 '--------------------------------------------------
 Private Function SaveApplicationState() As Object
     Dim state As Object
@@ -215,11 +221,11 @@ Private Function SaveApplicationState() As Object
 End Function
 
 '--------------------------------------------------
-' ƒAƒvƒŠƒP[ƒVƒ‡ƒ“ó‘Ô‚Ì•œŒ³
+' AvP[VÔ‚Ì•
 '--------------------------------------------------
 Private Sub RestoreApplicationState(ByVal state As Object)
     If state Is Nothing Then
-        ' ƒfƒtƒHƒ‹ƒgó‘Ô‚É•œŒ³
+        ' ftHgÔ‚É•
         With Application
             .ScreenUpdating = True
             .DisplayAlerts = True
@@ -237,12 +243,12 @@ Private Sub RestoreApplicationState(ByVal state As Object)
 End Sub
 
 '--------------------------------------------------
-' ƒŠƒ\[ƒXƒNƒŠ[ƒ“ƒAƒbƒv
+' \[XN[Abv
 '--------------------------------------------------
 Private Sub CleanupResources()
     On Error Resume Next
     
-    ' ƒ‚ƒWƒ…[ƒ‹ƒŒƒxƒ‹•Ï”‚ÌƒNƒŠƒA
+    ' W[xÏÌƒNA
     Set m_ConfigData = Nothing
     Set m_LogCollection = Nothing
     
@@ -250,34 +256,34 @@ Private Sub CleanupResources()
 End Sub
 
 '--------------------------------------------------
-' ƒOƒ[ƒoƒ‹ƒŠƒ\[ƒX‚ÌƒNƒŠ[ƒ“ƒAƒbƒviThisWorkbook‚©‚çŒÄ‚Ño‚µj
+' O[o\[XÌƒN[AbviThisWorkbookÄ‚Ñoj
 '--------------------------------------------------
 Public Sub CleanupGlobalResources()
     Call CleanupResources
 End Sub
 
 '--------------------------------------------------
-' ˆÀ‘S‚È©ŒÈI—¹
+' SÈÈI
 '--------------------------------------------------
 Private Sub SafeCloseThisWorkbook()
     On Error Resume Next
     
     Dim wb As Workbook
     
-    ' ‘¼‚ÌƒuƒbƒN‚ªŠJ‚¢‚Ä‚¢‚é‚©Šm”F
+    ' ÌƒubNJÄ‚é‚©mF
     If Workbooks.Count > 1 Then
-        ' ‘¼‚ÌƒuƒbƒN‚ª‚ ‚éê‡‚Í©•ª‚¾‚¯•Â‚¶‚é
+        ' ÌƒubNê‡ÍÂ‚
         ThisWorkbook.Close SaveChanges:=False
     Else
-        ' ©•ª‚¾‚¯‚Ìê‡‚Í‰½‚à‚µ‚È‚¢iExcel‚ªI—¹‚µ‚Ä‚µ‚Ü‚¤‚½‚ßj
-        ' ƒ†[ƒU[‚ªè“®‚Å•Â‚¶‚é
+        ' Ìê‡Í‰È‚iExcelIÄ‚Ü‚ßj
+        ' [U[è“®Å•Â‚
     End If
     
     On Error GoTo 0
 End Sub
 
 '--------------------------------------------------
-' ƒtƒ@ƒCƒ‹–¼æ“¾
+' t@Cæ“¾
 '--------------------------------------------------
 Public Function GetFileName(ByVal fullPath As String) As String
     Dim pos As Long

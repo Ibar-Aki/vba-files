@@ -315,6 +315,12 @@ Public Function GenerateOutput(ByVal mergedData As Object) As String
     
     ' ファイル保存
     outputPath = GetOutputPath()
+    If Not ValidateOutputPath(outputPath) Then
+        wbOut.Close False
+        Set wbOut = Nothing
+        GenerateOutput = ""
+        Exit Function
+    End If
     wbOut.SaveAs outputPath, xlOpenXMLWorkbook
     wbOut.Close False
     Set wbOut = Nothing
@@ -354,7 +360,21 @@ Public Function ColumnLetterToNumber(ByVal colLetter As String) As Long
     End If
     
     ' 列文字を番号に変換
-    ColumnLetterToNumber = Range(colLetter & "1").Column
+    Dim i As Long
+    Dim charCode As Long
+    Dim result As Long
+    
+    result = 0
+    For i = 1 To Len(colLetter)
+        charCode = Asc(Mid(colLetter, i, 1))
+        If charCode < Asc("A") Or charCode > Asc("Z") Then
+            ColumnLetterToNumber = 0
+            Exit Function
+        End If
+        result = result * 26 + (charCode - Asc("A") + 1)
+    Next i
+    
+    ColumnLetterToNumber = result
     Exit Function
     
 ErrorHandler:
