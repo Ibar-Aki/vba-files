@@ -76,7 +76,13 @@ Public Sub ExecuteMerge(ByVal strFile1 As String, ByVal strFile2 As String)
         Call LogMessage("設定ファイルの読み込みに失敗しました", LOG_LEVEL_ERROR)
         GoTo Cleanup
     End If
-    
+
+    ' 設定値検証
+    If Not ValidateConfigValues() Then
+        Call LogMessage("設定値の検証に失敗しました", LOG_LEVEL_ERROR)
+        GoTo Cleanup
+    End If
+
     ' ファイル検証
     If Not ValidateFiles(strFile1, strFile2) Then
         Call LogMessage("ファイル検証エラー", LOG_LEVEL_ERROR)
